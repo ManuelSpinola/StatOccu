@@ -22,10 +22,11 @@ mod_ocupacion_ui <- function(id) {
       ),
       p(
         class = "text-muted mb-0",
-        "Estima la probabilidad de que una especie ", tags$strong("ocupe"), " un sitio (",
-        "ψ) y la probabilidad de ", tags$strong("detección"), " condicional a la ocupación (p), ",
-        "separando ambos procesos para corregir la imperfecta detectabilidad. ",
-        "Marco: MacKenzie et al. (2002)."
+        "Es un modelo estadístico jerárquico que estima la probabilidad de que una especie ",
+        tags$strong("ocupe"), " un sitio (ψ) y la probabilidad de ",
+        tags$strong("detectarla"), " dado que está presente (p), ",
+        "corrigiendo el sesgo causado por la ", tags$strong("detectabilidad imperfecta"),
+        "(MacKenzie et al. 2002)."
       )
     ),
     
@@ -345,10 +346,10 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 3
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 4: Construir modelo
+      # PESTAÑA 4: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
-        title = tagList(bs_icon("sliders", class = "me-1"), "Construir modelo"),
+        title = tagList(bs_icon("sliders", class = "me-1"), "Ajustar modelo"),
         card_body(
           p(class = "small text-muted mb-3",
             "Define los submodelos de ocupación y detección. ",
@@ -428,10 +429,10 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 5
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Efectos
+      # PESTAÑA 6: Gráficos
       # ════════════════════════════════════════════════
       nav_panel(
-        title = tagList(bs_icon("graph-up-arrow", class = "me-1"), "Efectos"),
+        title = tagList(bs_icon("graph-up-arrow", class = "me-1"), "Gráficos"),
         card_body(
           p(class = "small text-muted mb-3",
             "Curva de respuesta de ψ o p sobre el rango de la covariable seleccionada, ",
