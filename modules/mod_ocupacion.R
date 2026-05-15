@@ -22,10 +22,10 @@ mod_ocupacion_ui <- function(id) {
       ),
       p(
         class = "text-muted mb-0",
-        "Es un modelo estadístico jerárquico que estima la probabilidad de que una especie ",
+        "Este tipo de modelos jerárquicos estiman la probabilidad de que una especie ",
         tags$strong("ocupe"), " un sitio (ψ) y la probabilidad de ",
         tags$strong("detectarla"), " dado que está presente (p), ",
-        "corrigiendo el sesgo causado por la ", tags$strong("detectabilidad imperfecta"),
+        "corrigiendo el sesgo causado por la detectabilidad imperfecta ",
         "(MacKenzie et al. 2002)."
       )
     ),
@@ -51,44 +51,50 @@ mod_ocupacion_ui <- function(id) {
           layout_columns(
             col_widths = c(6, 6),
             card(
-              class = "border-0",
-              style = paste0("background:", colores$fondo, ";"),
+              card_header(
+                bs_icon("geo-alt-fill", class = "me-1"),
+                "Proceso de estado (Ocupación)"
+              ),
               card_body(
-                tags$b(style = paste0("color:", colores$primario),
-                       "Proceso de estado (Ocupación)"),
-                tags$br(),
-                tags$code("z[i] ~ Bernoulli(ψ[i])"),
-                p(class = "small text-muted mt-2 mb-0",
+                p(class = "small mb-1",
+                  style = "font-family: monospace;",
+                  "z[i] ~ Bernoulli(ψ[i])"),
+                p(class = "small text-muted mb-0",
                   "ψ puede depender de covariables del sitio ",
                   "(elevación, cobertura, hábitat, etc.).")
               )
             ),
             card(
-              class = "border-0",
-              style = paste0("background:", colores$fondo, ";"),
+              card_header(
+                bs_icon("binoculars-fill", class = "me-1"),
+                "Proceso de observación (Detección)"
+              ),
               card_body(
-                tags$b(style = paste0("color:", colores$acento),
-                       "Proceso de observación (Detección)"),
-                tags$br(),
-                tags$code("y[i,j] | z[i]=1 ~ Bernoulli(p[i,j])"),
-                p(class = "small text-muted mt-2 mb-0",
+                p(class = "small mb-1",
+                  style = "font-family: monospace;",
+                  "y[i,j] | z[i]=1 ~ Bernoulli(p[i,j])"),
+                p(class = "small text-muted mb-0",
                   "p puede depender de covariables de la ocasión ",
                   "(esfuerzo, clima, fecha, etc.).")
               )
             )
           ),
           
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "Supuestos clave"),
-          tags$ul(
-            class = "small text-muted",
-            tags$li(tags$strong("Sitios cerrados:"),
-                    " la especie no coloniza ni abandona el sitio entre ocasiones."),
-            tags$li(tags$strong("Independencia condicional:"),
-                    " detecciones independientes dado el estado del sitio."),
-            tags$li(tags$strong("Sin falsos positivos:"),
-                    " si hay detección, la especie estaba presente."),
-            tags$li(tags$strong("≥ 2 ocasiones"), " de muestreo por sitio.")
+          card(
+            class = "mt-3",
+            card_header(bs_icon("shield-check", class = "me-1"), "Supuestos clave"),
+            card_body(
+              tags$ul(
+                class = "small text-muted mb-0",
+                tags$li(tags$strong("Sitios cerrados:"),
+                        " la especie no coloniza ni abandona el sitio entre ocasiones."),
+                tags$li(tags$strong("Independencia condicional:"),
+                        " detecciones independientes dado el estado del sitio."),
+                tags$li(tags$strong("Sin falsos positivos:"),
+                        " si hay detección, la especie estaba presente."),
+                tags$li(tags$strong("≥ 2 ocasiones"), " de muestreo por sitio.")
+              )
+            )
           ),
           
           h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -139,99 +145,97 @@ mod_ocupacion_ui <- function(id) {
         title = tagList(bs_icon("lightbulb", class = "me-1"), "Fundamentos"),
         card_body(
           
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "El modelo nulo: ψ(.) p(.)"),
-          p(class = "small text-muted mb-3",
-            "El modelo más simple asume ocupación y detección constantes. ",
-            "La verosimilitud integra sobre el estado latente z:"
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            card(
-              class = "border-0",
-              style = paste0("background:", colores$fondo, ";"),
-              card_body(
-                tags$b(class = "small", style = paste0("color:", colores$primario),
-                       "Historia con detecciones: 1,0,1,0,0"),
-                tags$hr(style = "margin: 0.4rem 0;"),
-                p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
-                p(class = "small mb-0", style = "font-family: monospace;",
-                  "L = ψ · p²·(1−p)³")
-              )
-            ),
-            card(
-              class = "border-0",
-              style = paste0("background:", colores$fondo, ";"),
-              card_body(
-                tags$b(class = "small", style = paste0("color:", colores$secundario),
-                       "Historia sin detecciones: 0,0,0,0,0"),
-                tags$hr(style = "margin: 0.4rem 0;"),
-                p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
-                p(class = "small mb-0", style = "font-family: monospace;",
-                  "L = ψ·(1−p)⁵ + (1−ψ)")
-              )
-            )
-          ),
-          
-          h5(style = paste0("color:", colores$primario, "; font-weight:700; margin-top:1.2rem;"),
-             "Covariables con la función logit"),
-          p(class = "small text-muted mb-3",
-            "Para mantener ψ y p entre 0 y 1 usamos la transformación logit:"
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            card(
-              style = paste0("border-left: 4px solid ", colores$primario,
-                             "; border-top:none; border-right:none; border-bottom:none;"),
-              card_body(
-                tags$b(class = "small", style = paste0("color:", colores$primario),
-                       "Ocupación (ψ) — covariable de sitio"),
-                tags$hr(style = "margin: 0.4rem 0;"),
-                p(class = "small mb-0", style = "font-family: monospace; line-height:1.9;",
-                  "logit(ψᵢ) = β₀ + β₁·bosqueᵢ", tags$br(),
-                  "ψᵢ = 1 / (1 + e^−(β₀+β₁·bosqueᵢ))")
-              )
-            ),
-            card(
-              style = paste0("border-left: 4px solid ", colores$acento,
-                             "; border-top:none; border-right:none; border-bottom:none;"),
-              card_body(
-                tags$b(class = "small", style = paste0("color:", colores$acento),
-                       "Detección (p) — covariable de ocasión"),
-                tags$hr(style = "margin: 0.4rem 0;"),
-                p(class = "small mb-0", style = "font-family: monospace; line-height:1.9;",
-                  "logit(pᵢⱼ) = α₀ + α₁·esfuerzoᵢⱼ", tags$br(),
-                  "pᵢⱼ = 1 / (1 + e^−(α₀+α₁·esfuerzoᵢⱼ))")
-              )
-            )
-          ),
-          
-          div(
-            class = "alert mt-3",
-            style = paste0("background:", colores$fondo,
-                           "; border-left: 4px solid ", colores$acento, "; font-size:0.85rem;"),
-            bs_icon("exclamation-triangle-fill", class = "me-1",
-                    style = paste0("color:", colores$acento)),
-            tags$strong("Regla de oro:"), " si p < 1, la ocupación naïve siempre subestima ψ. ",
-            "El sesgo aumenta conforme p → 0."
-          ),
-          
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "Selección de modelos"),
-          p(class = "small text-muted mb-3",
-            "Parámetros estimados por ", tags$strong("máxima verosimilitud"),
-            " con ", tags$code("occu()"), ". Comparación con ", tags$strong("AIC"), "."
-          ),
           card(
-            class = "border-0",
-            style = paste0("background:", colores$fondo, ";"),
+            card_header(bs_icon("calculator", class = "me-1"),
+                        "El modelo nulo: ψ(.) p(.)"),
             card_body(
-              tags$b(class = "small text-muted",
-                     "Notación: occu(~detección ~ocupación, data)"),
-              tags$hr(style = "margin: 0.4rem 0;"),
+              p(class = "small text-muted mb-3",
+                "El modelo más simple asume ocupación y detección constantes. ",
+                "La verosimilitud integra sobre el estado latente z:"
+              ),
+              layout_columns(
+                col_widths = c(6, 6),
+                card(
+                  card_header(bs_icon("check-circle", class = "me-1"),
+                              "Historia con detecciones: 1,0,1,0,0"),
+                  card_body(
+                    p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
+                    p(class = "small mb-0", style = "font-family: monospace;",
+                      "L = ψ · p²·(1−p)³")
+                  )
+                ),
+                card(
+                  card_header(bs_icon("x-circle", class = "me-1"),
+                              "Historia sin detecciones: 0,0,0,0,0"),
+                  card_body(
+                    p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
+                    p(class = "small mb-0", style = "font-family: monospace;",
+                      "L = ψ·(1−p)⁵ + (1−ψ)")
+                  )
+                )
+              )
+            )
+          ),
+          
+          card(
+            class = "mt-3",
+            card_header(bs_icon("graph-up", class = "me-1"),
+                        "Covariables con la función logit"),
+            card_body(
+              p(class = "small text-muted mb-3",
+                "Para mantener ψ y p entre 0 y 1 usamos la transformación logit:"
+              ),
+              layout_columns(
+                col_widths = c(6, 6),
+                card(
+                  card_header(bs_icon("geo-alt-fill", class = "me-1"),
+                              "Ocupación (ψ) — covariable de sitio"),
+                  card_body(
+                    p(class = "small mb-0",
+                      style = "font-family: monospace; line-height:1.9;",
+                      "logit(ψᵢ) = β₀ + β₁·bosqueᵢ", tags$br(),
+                      "ψᵢ = 1 / (1 + e^−(β₀+β₁·bosqueᵢ))")
+                  )
+                ),
+                card(
+                  card_header(bs_icon("binoculars-fill", class = "me-1"),
+                              "Detección (p) — covariable de ocasión"),
+                  card_body(
+                    p(class = "small mb-0",
+                      style = "font-family: monospace; line-height:1.9;",
+                      "logit(pᵢⱼ) = α₀ + α₁·esfuerzoᵢⱼ", tags$br(),
+                      "pᵢⱼ = 1 / (1 + e^−(α₀+α₁·esfuerzoᵢⱼ))")
+                  )
+                )
+              ),
+              div(
+                class = "alert mt-3 mb-0",
+                style = paste0("background:", colores$fondo,
+                               "; border-left: 4px solid ", colores$acento,
+                               "; font-size:0.85rem;"),
+                bs_icon("exclamation-triangle-fill", class = "me-1",
+                        style = paste0("color:", colores$acento)),
+                tags$strong("Regla de oro:"), " si p < 1, la ocupación naïve siempre ",
+                "subestima ψ. El sesgo aumenta conforme p → 0."
+              )
+            )
+          ),
+          
+          card(
+            class = "mt-3",
+            card_header(bs_icon("bar-chart-steps", class = "me-1"),
+                        "Selección de modelos"),
+            card_body(
+              p(class = "small text-muted mb-2",
+                "Parámetros estimados por ", tags$strong("máxima verosimilitud"),
+                " con ", tags$code("occu()"), ". Comparación con ", tags$strong("AIC"), "."
+              ),
+              p(class = "small text-muted mb-1",
+                tags$strong("Notación:"), " occu(~detección ~ocupación, data)"
+              ),
               tags$table(
                 class = "table table-sm table-borderless small mb-0",
-                style = "font-family: monospace; background: transparent;",
+                style = "font-family: monospace;",
                 tags$tbody(
                   tags$tr(
                     tags$td(style = paste0("white-space:nowrap; color:", colores$primario),
@@ -489,7 +493,7 @@ mod_ocupacion_ui <- function(id) {
         title = tagList(bs_icon("bar-chart-steps", class = "me-1"), "Comparar modelos"),
         card_body(
           p(class = "small text-muted mb-3",
-            "Guarda modelos desde 'Construir modelo' y compáralos por AIC."
+            "Guarda modelos desde 'Ajustar modelo' y compáralos por AIC."
           ),
           actionButton(ns("limpiar_modelos"), "Limpiar lista",
                        class = "btn btn-outline-danger btn-sm mb-2",
@@ -1273,7 +1277,7 @@ mod_ocupacion_server <- function(id) {
           class = "alert alert-warning small py-2 px-3",
           bs_icon("exclamation-triangle", class = "me-1"),
           "Aún no has guardado ningún modelo. Ajusta modelos en la pestaña ",
-          "'Construir modelo' y usa el botón 'Guardar para comparar'."
+          "'Ajustar modelo' y usa el botón 'Guardar para comparar'."
         )
       } else NULL
     })
