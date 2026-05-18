@@ -39,99 +39,197 @@ mod_ocupacion_ui <- function(id) {
         title = tagList(bs_icon("book", class = "me-1"), "¿Qué es?"),
         card_body(
           
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "El problema de la detectabilidad imperfecta"),
-          p(class = "small text-muted mb-3",
-            "La ", tags$strong("ausencia observada"), " no implica ausencia real. ",
-            "Los modelos de ocupación usan visitas repetidas para separar ambos procesos."
-          ),
-          
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "Estructura del modelo"),
+          # ── Fila 1 ────────────────────────────────────
           layout_columns(
             col_widths = c(6, 6),
+            
+            # Card 1: El problema
             card(
-              card_header(
-                bs_icon("geo-alt-fill", class = "me-1"),
-                "Proceso de estado (Ocupación)"
-              ),
+              card_header(bs_icon("question-circle", class = "me-1"),
+                          "El problema de la detectabilidad imperfecta"),
               card_body(
-                p(class = "small mb-1",
-                  style = "font-family: monospace;",
-                  "z[i] ~ Bernoulli(ψ[i])"),
-                p(class = "small text-muted mb-0",
-                  "ψ puede depender de covariables del sitio ",
-                  "(elevación, cobertura, hábitat, etc.).")
+                p(class = "small text-muted mb-3",
+                  "Cuando monitoreamos una especie, la ",
+                  tags$strong("ausencia observada"), " no implica ausencia real: ",
+                  "el animal puede estar presente pero no haber sido detectado. ",
+                  "Ignorar esto ", tags$strong("subestima la ocupación real"),
+                  " y sesga todas las inferencias."
+                ),
+                # Esquema visual: lógica del modelo de ocupación
+                div(
+                  # Fila 1: sitio ocupado con dos ramas
+                  div(
+                    style = "display:flex; gap:8px; align-items:center; margin-bottom:6px;",
+                    div(
+                      style = "background:#E8F4FB; border-radius:8px; padding:8px 12px;
+                               text-align:center; min-width:110px;",
+                      bs_icon("geo-alt-fill", style = "color:#1170AA; font-size:1.2rem;"),
+                      tags$br(),
+                      tags$b(class = "small", style = "color:#1170AA", "Sitio ocupado"),
+                      p(class = "small text-muted mb-0", "z = 1")
+                    ),
+                    div(style = "color:#A3ACB9; font-size:1.1rem;", "→"),
+                    div(
+                      style = "display:flex; flex-direction:column; gap:6px; flex:1;",
+                      div(
+                        style = "background:#FFF3E0; border-radius:8px; padding:6px 12px;
+                                 display:flex; align-items:center; gap:8px;",
+                        bs_icon("binoculars-fill", style = "color:#FC7D0B; font-size:1.1rem;"),
+                        div(
+                          tags$b(class = "small", style = "color:#FC7D0B", "Detectado"),
+                          p(class = "small text-muted mb-0", "y = 1  (p > 0)")
+                        )
+                      ),
+                      div(
+                        style = "background:#EEF3FA; border-radius:8px; padding:6px 12px;
+                                 display:flex; align-items:center; gap:8px;
+                                 border: 1px solid #C8D9EC;",
+                        bs_icon("eye-slash", style = "color:#5FA2CE; font-size:1.1rem;"),
+                        div(
+                          tags$b(class = "small", style = "color:#5FA2CE", "No detectado"),
+                          p(class = "small text-muted mb-0", "y = 0  (1 − p)")
+                        )
+                      )
+                    )
+                  ),
+                  # Fila 2: sitio no ocupado
+                  div(
+                    style = "display:flex; gap:8px; align-items:center;",
+                    div(
+                      style = "background:#F4F7FB; border-radius:8px; padding:8px 12px;
+                               text-align:center; min-width:110px;
+                               border: 1px dashed #C8D9EC;",
+                      bs_icon("geo-alt", style = "color:#A3ACB9; font-size:1.2rem;"),
+                      tags$br(),
+                      tags$b(class = "small", style = "color:#A3ACB9", "Sitio vacío"),
+                      p(class = "small text-muted mb-0", "z = 0")
+                    ),
+                    div(style = "color:#A3ACB9; font-size:1.1rem;", "→"),
+                    div(
+                      style = "background:#F4F7FB; border-radius:8px; padding:6px 12px;
+                               display:flex; align-items:center; gap:8px; flex:1;
+                               border: 1px dashed #C8D9EC;",
+                      bs_icon("x-circle", style = "color:#A3ACB9; font-size:1.1rem;"),
+                      div(
+                        tags$b(class = "small", style = "color:#A3ACB9",
+                               "Siempre no detectado"),
+                        p(class = "small text-muted mb-0", "y = 0  (imposible y = 1)")
+                      )
+                    )
+                  )
+                )
               )
             ),
+            
+            # Card 2: Estructura jerárquica
             card(
-              card_header(
-                bs_icon("binoculars-fill", class = "me-1"),
-                "Proceso de observación (Detección)"
-              ),
+              card_header(bs_icon("diagram-3", class = "me-1"),
+                          "Estructura jerárquica del modelo"),
               card_body(
-                p(class = "small mb-1",
-                  style = "font-family: monospace;",
-                  "y[i,j] | z[i]=1 ~ Bernoulli(p[i,j])"),
-                p(class = "small text-muted mb-0",
-                  "p puede depender de covariables de la ocasión ",
-                  "(esfuerzo, clima, fecha, etc.).")
+                p(class = "small text-muted mb-2",
+                  "El modelo tiene dos niveles que se estiman simultáneamente:"
+                ),
+                div(
+                  style = paste0("border-left: 4px solid ", "#1170AA",
+                                 "; padding: 8px 12px; margin-bottom:10px;",
+                                 " background:#E8F4FB; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = paste0("color:", "#1170AA"),
+                         bs_icon("geo-alt-fill", class = "me-1"),
+                         "Nivel 1 — Proceso de estado (Ocupación)"),
+                  p(class = "small mb-1 mt-1",
+                    style = "font-family: monospace;", "z[i] ~ Bernoulli(ψ[i])"),
+                  p(class = "small text-muted mb-0",
+                    "¿Está la especie presente en el sitio i? ψ puede depender de ",
+                    "covariables del sitio (elevación, cobertura, hábitat).")
+                ),
+                div(
+                  style = paste0("border-left: 4px solid ", "#FC7D0B",
+                                 "; padding: 8px 12px;",
+                                 " background:#FFF3E0; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = paste0("color:", "#FC7D0B"),
+                         bs_icon("binoculars-fill", class = "me-1"),
+                         "Nivel 2 — Proceso de observación (Detección)"),
+                  p(class = "small mb-1 mt-1",
+                    style = "font-family: monospace;",
+                    "y[i,j] | z[i]=1 ~ Bernoulli(p[i,j])"),
+                  p(class = "small text-muted mb-0",
+                    "Dado que el sitio está ocupado, ¿fue detectada en la ocasión j? ",
+                    "p puede depender de covariables de la ocasión (esfuerzo, clima).")
+                )
               )
             )
           ),
           
-          card(
+          # ── Fila 2 ────────────────────────────────────
+          layout_columns(
+            col_widths = c(6, 6),
             class = "mt-3",
-            card_header(bs_icon("shield-check", class = "me-1"), "Supuestos clave"),
-            card_body(
-              tags$ul(
-                class = "small text-muted mb-0",
-                tags$li(tags$strong("Sitios cerrados:"),
-                        " la especie no coloniza ni abandona el sitio entre ocasiones."),
-                tags$li(tags$strong("Independencia condicional:"),
-                        " detecciones independientes dado el estado del sitio."),
-                tags$li(tags$strong("Sin falsos positivos:"),
-                        " si hay detección, la especie estaba presente."),
-                tags$li(tags$strong("≥ 2 ocasiones"), " de muestreo por sitio.")
+            
+            # Card 3: Supuestos
+            card(
+              card_header(bs_icon("shield-check", class = "me-1"), "Supuestos clave"),
+              card_body(
+                tags$ul(
+                  class = "small text-muted mb-0",
+                  tags$li(
+                    tags$strong("Sitios cerrados:"),
+                    " la especie no coloniza ni abandona el sitio entre ocasiones ",
+                    "de muestreo. Si hay movimiento entre ocasiones, el supuesto se viola."
+                  ),
+                  tags$li(
+                    tags$strong("Independencia condicional:"),
+                    " las detecciones en cada ocasión son independientes dado el estado del sitio."
+                  ),
+                  tags$li(
+                    tags$strong("Sin falsos positivos:"),
+                    " si se registra una detección, la especie realmente estaba presente."
+                  ),
+                  tags$li(
+                    tags$strong("≥ 2 ocasiones de muestreo"),
+                    " por sitio para poder estimar p."
+                  )
+                )
               )
-            )
-          ),
-          
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "¿Cuándo usar modelos de ocupación?"),
-          div(
-            style = "overflow-x: auto;",
-            tags$table(
-              class = "table table-sm table-bordered small mb-0",
-              style = "background: #ffffff;",
-              tags$thead(
-                style = paste0("background:", colores$primario, "; color: #ffffff;"),
-                tags$tr(
-                  tags$th("Tipo de dato"),
-                  tags$th("Organismo"),
-                  tags$th("Covariables ψ"),
-                  tags$th("Covariables p")
-                )
-              ),
-              tags$tbody(
-                tags$tr(
-                  tags$td("Cámaras trampa"),
-                  tags$td("Mamíferos medianos y grandes"),
-                  tags$td("Elevación, cobertura, perturbación"),
-                  tags$td("Días-trampa, lluvias")
-                ),
-                tags$tr(style = paste0("background:", colores$fondo),
-                        tags$td("Puntos de conteo"),
-                        tags$td("Aves, anfibios"),
-                        tags$td("Estructura vegetal, fragmentación"),
-                        tags$td("Viento, nubosidad, observador")
-                ),
-                tags$tr(
-                  tags$td("Grabadoras acústicas"),
-                  tags$td("Murciélagos, aves"),
-                  tags$td("Altitud, cobertura"),
-                  tags$td("Ruido de fondo, temperatura")
-                )
+            ),
+            
+            # Card 4: ¿Cuándo usar?
+            card(
+              card_header(bs_icon("camera", class = "me-1"),
+                          "¿Cuándo usar modelos de ocupación?"),
+              card_body(class = "p-0",
+                        tags$table(
+                          class = "table table-sm table-bordered small mb-0",
+                          style = "background: #ffffff;",
+                          tags$thead(
+                            style = paste0("background:", "#1170AA", "; color: #ffffff;"),
+                            tags$tr(
+                              tags$th("Tipo de dato"),
+                              tags$th("Organismo"),
+                              tags$th("Covariables ψ"),
+                              tags$th("Covariables p")
+                            )
+                          ),
+                          tags$tbody(
+                            tags$tr(
+                              tags$td("Cámaras trampa"),
+                              tags$td("Mamíferos medianos y grandes"),
+                              tags$td("Elevación, cobertura, perturbación"),
+                              tags$td("Días-trampa, lluvias")
+                            ),
+                            tags$tr(style = paste0("background:", "#F4F7FB"),
+                                    tags$td("Puntos de conteo"),
+                                    tags$td("Aves, anfibios"),
+                                    tags$td("Estructura vegetal, fragmentación"),
+                                    tags$td("Viento, nubosidad, observador")
+                            ),
+                            tags$tr(
+                              tags$td("Grabadoras acústicas"),
+                              tags$td("Murciélagos, aves"),
+                              tags$td("Altitud, cobertura"),
+                              tags$td("Ruido de fondo, temperatura")
+                            )
+                          )
+                        )
               )
             )
           )
@@ -145,117 +243,179 @@ mod_ocupacion_ui <- function(id) {
         title = tagList(bs_icon("lightbulb", class = "me-1"), "Fundamentos"),
         card_body(
           
-          card(
-            card_header(bs_icon("calculator", class = "me-1"),
-                        "El modelo nulo: ψ(.) p(.)"),
-            card_body(
-              p(class = "small text-muted mb-3",
-                "El modelo más simple asume ocupación y detección constantes. ",
-                "La verosimilitud integra sobre el estado latente z:"
-              ),
-              layout_columns(
-                col_widths = c(6, 6),
-                card(
-                  card_header(bs_icon("check-circle", class = "me-1"),
-                              "Historia con detecciones: 1,0,1,0,0"),
-                  card_body(
-                    p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
-                    p(class = "small mb-0", style = "font-family: monospace;",
-                      "L = ψ · p²·(1−p)³")
+          # ── Fila 1 ────────────────────────────────────
+          layout_columns(
+            col_widths = c(6, 6),
+            
+            # Card 1: Verosimilitud del historial
+            card(
+              card_header(bs_icon("calculator", class = "me-1"),
+                          "Verosimilitud del historial de detecciones"),
+              card_body(
+                p(class = "small text-muted mb-3",
+                  "El modelo calcula la probabilidad del historial de detecciones ",
+                  "considerando que no sabemos con certeza si el sitio estaba ocupado o no:"
+                ),
+                div(
+                  style = paste0("border-left: 4px solid ", "#1170AA",
+                                 "; padding: 8px 12px; margin-bottom:10px;",
+                                 " background:#E8F4FB; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = paste0("color:", "#1170AA"),
+                         bs_icon("check-circle", class = "me-1"),
+                         "Historia con detecciones: 1,0,1,0,0"),
+                  p(class = "small mb-0 mt-1",
+                    style = "font-family: monospace;",
+                    "L = ψ · p²·(1−p)³")
+                ),
+                div(
+                  style = paste0("border-left: 4px solid ", "#5FA2CE",
+                                 "; padding: 8px 12px;",
+                                 " background:#F4F7FB; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = paste0("color:", "#5FA2CE"),
+                         bs_icon("x-circle", class = "me-1"),
+                         "Historia sin detecciones: 0,0,0,0,0"),
+                  p(class = "small mb-0 mt-1",
+                    style = "font-family: monospace;",
+                    "L = ψ·(1−p)⁵ + (1−ψ)"),
+                  p(class = "small text-muted mb-0 mt-1",
+                    "La especie pudo estar presente pero no detectada, ",
+                    "o simplemente ausente.")
+                )
+              )
+            ),
+            
+            # Card 2: Sesgo naïve
+            card(
+              card_header(bs_icon("exclamation-triangle-fill", class = "me-1"),
+                          "El sesgo de la ocupación naïve"),
+              card_body(
+                p(class = "small text-muted mb-3",
+                  "Si ignoramos la detectabilidad y calculamos simplemente la ",
+                  "proporción de sitios con al menos una detección, obtenemos ",
+                  "una estimación ", tags$strong("siempre sesgada hacia abajo"), "."
+                ),
+                div(
+                  style = "display:flex; gap:12px; align-items:center; margin-bottom:12px;",
+                  div(
+                    style = paste0("flex:1; background:#fff0f2; border-radius:8px;",
+                                   " padding:10px; text-align:center;"),
+                    tags$b(class = "small", style = "color:#C85200", "Ocupación naïve"),
+                    p(class = "small mb-0",
+                      style = "font-family:monospace; font-size:1.1rem;",
+                      "sitios det. / total"),
+                    p(class = "small text-muted mb-0", "Subestima ψ real")
+                  ),
+                  div(style = "font-size:1.4rem; color:#A3ACB9;", "<"),
+                  div(
+                    style = paste0("flex:1; background:#E8F4FB; border-radius:8px;",
+                                   " padding:10px; text-align:center;"),
+                    tags$b(class = "small", style = "color:#1170AA", "ψ estimada"),
+                    p(class = "small mb-0",
+                      style = "font-family:monospace; font-size:1.1rem;",
+                      "modelo de ocupación"),
+                    p(class = "small text-muted mb-0", "Corrige por p")
                   )
                 ),
-                card(
-                  card_header(bs_icon("x-circle", class = "me-1"),
-                              "Historia sin detecciones: 0,0,0,0,0"),
-                  card_body(
-                    p(class = "small text-muted mb-1", "Verosimilitud marginal:"),
-                    p(class = "small mb-0", style = "font-family: monospace;",
-                      "L = ψ·(1−p)⁵ + (1−ψ)")
-                  )
+                div(
+                  class = "alert mb-0",
+                  style = paste0("background:#FFF3E0; border-left: 3px solid #FC7D0B;",
+                                 " font-size:0.82rem; padding: 0.5rem 0.8rem;"),
+                  bs_icon("exclamation-triangle-fill", class = "me-1",
+                          style = "color:#FC7D0B;"),
+                  tags$strong("Regla de oro:"), " cuanto menor es p, mayor es el sesgo naïve. ",
+                  "Con p = 0.3 y ψ real = 0.8, la estimación naïve puede ser tan baja como 0.4."
                 )
               )
             )
           ),
           
-          card(
+          # ── Fila 2 ────────────────────────────────────
+          layout_columns(
+            col_widths = c(6, 6),
             class = "mt-3",
-            card_header(bs_icon("graph-up", class = "me-1"),
-                        "Covariables con la función logit"),
-            card_body(
-              p(class = "small text-muted mb-3",
-                "Para mantener ψ y p entre 0 y 1 usamos la transformación logit:"
-              ),
-              layout_columns(
-                col_widths = c(6, 6),
-                card(
-                  card_header(bs_icon("geo-alt-fill", class = "me-1"),
-                              "Ocupación (ψ) — covariable de sitio"),
-                  card_body(
-                    p(class = "small mb-0",
-                      style = "font-family: monospace; line-height:1.9;",
-                      "logit(ψᵢ) = β₀ + β₁·bosqueᵢ", tags$br(),
-                      "ψᵢ = 1 / (1 + e^−(β₀+β₁·bosqueᵢ))")
-                  )
+            
+            # Card 3: Covariables con logit
+            card(
+              card_header(bs_icon("graph-up", class = "me-1"),
+                          "Incorporar covariables con la función logit"),
+              card_body(
+                p(class = "small text-muted mb-2",
+                  "Para mantener ψ y p entre 0 y 1 se usa la transformación logit, ",
+                  "igual que en la regresión logística:"
                 ),
-                card(
-                  card_header(bs_icon("binoculars-fill", class = "me-1"),
-                              "Detección (p) — covariable de ocasión"),
-                  card_body(
-                    p(class = "small mb-0",
-                      style = "font-family: monospace; line-height:1.9;",
-                      "logit(pᵢⱼ) = α₀ + α₁·esfuerzoᵢⱼ", tags$br(),
-                      "pᵢⱼ = 1 / (1 + e^−(α₀+α₁·esfuerzoᵢⱼ))")
-                  )
+                div(
+                  style = paste0("border-left: 4px solid ", "#1170AA",
+                                 "; padding: 8px 12px; margin-bottom:8px;",
+                                 " background:#E8F4FB; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = "color:#1170AA",
+                         bs_icon("geo-alt-fill", class = "me-1"), "Ocupación (ψ)"),
+                  p(class = "small mb-0 mt-1", style = "font-family: monospace;",
+                    "logit(ψᵢ) = β₀ + β₁·bosqueᵢ"),
+                  p(class = "small text-muted mb-0",
+                    "β₁ > 0 → más bosque = mayor probabilidad de ocupación")
+                ),
+                div(
+                  style = paste0("border-left: 4px solid ", "#FC7D0B",
+                                 "; padding: 8px 12px;",
+                                 " background:#FFF3E0; border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = "color:#FC7D0B",
+                         bs_icon("binoculars-fill", class = "me-1"), "Detección (p)"),
+                  p(class = "small mb-0 mt-1", style = "font-family: monospace;",
+                    "logit(pᵢⱼ) = α₀ + α₁·esfuerzoᵢⱼ"),
+                  p(class = "small text-muted mb-0",
+                    "α₁ > 0 → más días-trampa = mayor probabilidad de detección")
                 )
-              ),
-              div(
-                class = "alert mt-3 mb-0",
-                style = paste0("background:", colores$fondo,
-                               "; border-left: 4px solid ", colores$acento,
-                               "; font-size:0.85rem;"),
-                bs_icon("exclamation-triangle-fill", class = "me-1",
-                        style = paste0("color:", colores$acento)),
-                tags$strong("Regla de oro:"), " si p < 1, la ocupación naïve siempre ",
-                "subestima ψ. El sesgo aumenta conforme p → 0."
               )
-            )
-          ),
-          
-          card(
-            class = "mt-3",
-            card_header(bs_icon("bar-chart-steps", class = "me-1"),
-                        "Selección de modelos"),
-            card_body(
-              p(class = "small text-muted mb-2",
-                "Parámetros estimados por ", tags$strong("máxima verosimilitud"),
-                " con ", tags$code("occu()"), ". Comparación con ", tags$strong("AIC"), "."
-              ),
-              p(class = "small text-muted mb-1",
-                tags$strong("Notación:"), " occu(~detección ~ocupación, data)"
-              ),
-              tags$table(
-                class = "table table-sm table-borderless small mb-0",
-                style = "font-family: monospace;",
-                tags$tbody(
-                  tags$tr(
-                    tags$td(style = paste0("white-space:nowrap; color:", colores$primario),
-                            "occu(~1 ~1, umf)"),
-                    tags$td(class = "text-muted ps-3", "ψ(.) p(.)")
-                  ),
-                  tags$tr(
-                    tags$td(style = paste0("white-space:nowrap; color:", colores$primario),
-                            "occu(~1 ~bosque, umf)"),
-                    tags$td(class = "text-muted ps-3", "ψ(bosque) p(.)")
-                  ),
-                  tags$tr(
-                    tags$td(style = paste0("white-space:nowrap; color:", colores$primario),
-                            "occu(~esfuerzo ~bosque, umf)"),
-                    tags$td(class = "text-muted ps-3", "ψ(bosque) p(esfuerzo)")
-                  ),
-                  tags$tr(
-                    tags$td(style = paste0("white-space:nowrap; color:", colores$primario),
-                            "fitList(m1,m2,m3) |> modSel()"),
-                    tags$td(class = "text-muted ps-3", "tabla AIC")
+            ),
+            
+            # Card 4: Selección de modelos
+            card(
+              card_header(bs_icon("bar-chart-steps", class = "me-1"),
+                          "Selección de modelos (AIC)"),
+              card_body(
+                p(class = "small text-muted mb-3",
+                  "Los parámetros se estiman por ", tags$strong("máxima verosimilitud"),
+                  ". Para comparar modelos candidatos con distintas combinaciones ",
+                  "de covariables se usa el ", tags$strong("AIC"),
+                  " (Criterio de Información de Akaike):"
+                ),
+                div(
+                  style = paste0("border-left: 4px solid #1170AA;",
+                                 " padding: 8px 12px; background:#E8F4FB;",
+                                 " border-radius:0 6px 6px 0; margin-bottom:8px;"),
+                  tags$b(class = "small", style = "color:#1170AA",
+                         "Menor AIC = mejor modelo"),
+                  p(class = "small text-muted mb-0",
+                    "El AIC penaliza la complejidad: un modelo con más parámetros ",
+                    "solo es mejor si mejora el ajuste suficientemente.")
+                ),
+                div(
+                  style = paste0("border-left: 4px solid #FC7D0B;",
+                                 " padding: 8px 12px; background:#FFF3E0;",
+                                 " border-radius:0 6px 6px 0; margin-bottom:8px;"),
+                  tags$b(class = "small", style = "color:#FC7D0B", "ΔAIC < 2"),
+                  p(class = "small text-muted mb-0",
+                    "Modelos con ΔAIC < 2 tienen apoyo similar al mejor modelo ",
+                    "ajustado a los datos; entre 2 y 7 el apoyo es considerablemente ",
+                    "menor; mayor de 10 indica muy poco respaldo empírico dado los datos.")
+                ),
+                div(
+                  style = paste0("border-left: 4px solid #5FA2CE;",
+                                 " padding: 8px 12px; background:#EEF3FA;",
+                                 " border-radius:0 6px 6px 0;"),
+                  tags$b(class = "small", style = "color:#5FA2CE",
+                         "Modelos candidatos típicos"),
+                  tags$ul(
+                    class = "small text-muted mb-0 mt-1",
+                    style = "padding-left: 1.2rem;",
+                    tags$li(tags$code("ψ(.) p(.)"),
+                            " — ocupación y detección constantes (modelo nulo)"),
+                    tags$li(tags$code("ψ(covariable) p(.)"),
+                            " — ocupación varía por sitio, detección constante"),
+                    tags$li(tags$code("ψ(.) p(covariable)"),
+                            " — ocupación constante, detección varía por ocasión"),
+                    tags$li(tags$code("ψ(covariable) p(covariable)"),
+                            " — ambos procesos dependen de covariables")
                   )
                 )
               )
@@ -504,8 +664,19 @@ mod_ocupacion_ui <- function(id) {
           div(
             class = "alert alert-info small py-2 px-3 mt-3",
             bs_icon("info-circle-fill", class = "me-1"),
-            tags$strong("ΔAIC:"), " < 2 = apoyo equivalente; ",
-            "2–7 = apoyo menor; > 10 = muy poco apoyo."
+            tags$strong("ΔAIC:"),
+            " diferencia de AIC con respecto al mejor modelo ajustado a los datos. ",
+            "Modelos con ΔAIC < 2 tienen apoyo similar; entre 2 y 7 el apoyo es ",
+            "considerablemente menor; mayor de 10 indica muy poco respaldo empírico ",
+            "dado los datos.",
+            tags$br(), tags$br(),
+            bs_icon("lightbulb", class = "me-1"),
+            tags$strong("Importante:"),
+            " el AIC es siempre relativo a los datos observados y a los modelos ",
+            "candidatos considerados. El modelo con menor AIC es el que mejor se ajusta ",
+            tags$em("a tus datos"), ", no necesariamente el modelo ",
+            "'verdadero'. Si cambias los datos o incluyes nuevos candidatos, ",
+            "el modelo ganador puede cambiar."
           )
         )
       ), # /PESTAÑA 8
@@ -1286,21 +1457,26 @@ mod_ocupacion_server <- function(id) {
       req(length(modelos_guardados()) >= 1)
       fl  <- do.call(unmarked::fitList, modelos_guardados())
       sel <- unmarked::modSel(fl)
-      as.data.frame(sel@Full) |>
-        tibble::rownames_to_column("Modelo") |>
+      
+      # Extraer AIC, nPars y logLik directamente de cada modelo
+      nms  <- names(modelos_guardados())
+      mods <- modelos_guardados()
+      df   <- data.frame(
+        Modelo        = nms,
+        `Núm. params.` = sapply(nms, function(n) length(coef(mods[[n]]))),
+        AIC           = sapply(nms, function(n) mods[[n]]@AIC),
+        `log-lik`     = sapply(nms, function(n) -mods[[n]]@negLogLike),
+        check.names   = FALSE,
+        stringsAsFactors = FALSE
+      ) |>
         dplyr::arrange(AIC) |>
         dplyr::mutate(
-          delta_AIC = AIC - min(AIC),
-          wi        = exp(-0.5 * delta_AIC),
-          wi        = wi / sum(wi)
+          `ΔAIC` = AIC - min(AIC),
+          `w_i`  = exp(-0.5 * `ΔAIC`),
+          `w_i`  = `w_i` / sum(`w_i`)
         ) |>
-        dplyr::select(Modelo, nPars, AIC, delta_AIC, wi, logLik) |>
-        dplyr::rename(
-          `Núm. params.` = nPars,
-          `ΔAIC`         = delta_AIC,
-          `w_i`          = wi,
-          `log-lik`      = logLik
-        )
+        dplyr::select(Modelo, `Núm. params.`, AIC, `ΔAIC`, `w_i`, `log-lik`)
+      df
     })
     
     output$tabla_aic <- renderDT({
@@ -1311,10 +1487,7 @@ mod_ocupacion_server <- function(id) {
                         language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json")),
         rownames = FALSE,
         class    = "table-sm table-striped"
-      ) |>
-        DT::formatStyle("ΔAIC",
-                        background = DT::styleInterval(c(2, 7),
-                                                       c("#f0f9f5", "#fffbf0", "#fff0f2")))
+      )
     })
     
     output$plot_aic <- renderPlot({

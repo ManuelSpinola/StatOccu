@@ -1,0 +1,32 @@
+Package: StatOccu
+Title: Interactive Occupancy Modeling Platform
+Version: 1.0.0
+Authors@R: 
+    person("Manuel", "Spínola", 
+           email = "manuel.spinola@una.ac.cr",
+           role  = c("aut", "cre"),
+           comment = c(ORCID = ""))
+Description: A Shiny-based interactive platform for occupancy modeling,
+    part of the StatSuite ecosystem. Includes modules for classical occupancy
+    models (unmarked), with spatial occupancy (spOccupancy) and Bayesian
+    frameworks (nimble/Stan) in development. Designed for teaching and
+    research in ecology and biodiversity sciences.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    shiny (>= 1.8.0),
+    bslib (>= 0.7.0),
+    bsicons,
+    shinyjs,
+    ggplot2,
+    dplyr,
+    tidyr,
+    unmarked,
+    golem
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+URL: https://github.com/ManuelSpinola/StatOccu
+BugReports: https://github.com/ManuelSpinola/StatOccu/issues
+Config/roxygen2/version: 8.0.0
