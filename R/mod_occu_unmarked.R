@@ -8,7 +8,7 @@
 # ============================================================
 
 # ── UI ────────────────────────────────────────────────────
-mod_ocupacion_ui <- function(id) {
+mod_occu_unmarked_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
@@ -510,7 +510,69 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 3
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 4: Ajustar modelo
+      
+      # ════════════════════════════════════════════════
+      # PESTAÑA 4: Explorar
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("zoom-in", class = "me-1"), "Explorar"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Visualiza las relaciones entre las covariables y las ",
+            "detecciones antes de ajustar el modelo. Ayuda a identificar ",
+            "predictores relevantes para los submodelos de ocupación y detección."
+          ),
+          layout_columns(
+            col_widths = c(4, 8),
+            fill = FALSE,
+            card(
+              card_header(bs_icon("sliders", class = "me-1"), "Controles"),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("expl_sel_cov")),
+                selectInput(
+                  ns("expl_submodelo"),
+                  label = "Submodelo:",
+                  choices = c(
+                    "Ocupación (ψ) — covariables de sitio" = "state",
+                    "Detección (p) — covariables de ocasión" = "det"
+                  )
+                ),
+                tags$hr(),
+                uiOutput(ns("expl_cards_resumen"))
+              )
+            ),
+            div(
+              card(
+                class = "mb-3",
+                card_header(
+                  bs_icon("graph-up-arrow", class = "me-1"),
+                  "Detección naive vs. covariable",
+                  span(class = "text-muted small ms-2",
+                       "— proporción de sitios con ≥1 detección")
+                ),
+                card_body(
+                  plotOutput(ns("expl_plot_cov"), height = "280px")
+                )
+              ),
+              card(
+                class = "mb-0",
+                card_header(
+                  bs_icon("grid-3x3", class = "me-1"),
+                  "Correlación entre covariables",
+                  span(class = "text-muted small ms-2",
+                       "— detectar multicolinealidad")
+                ),
+                card_body(
+                  plotOutput(ns("expl_plot_corr"), height = "240px")
+                )
+              )
+            )
+          )
+        )
+      ), # /PESTAÑA 4
+      
+      # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("sliders", class = "me-1"), "Ajustar modelo"),
@@ -557,23 +619,46 @@ mod_ocupacion_ui <- function(id) {
                 ns("ajustar_modelo"),
                 label = tagList(bs_icon("play-fill", class = "me-1"), "Ajustar modelo"),
                 class = "btn btn-primary me-2"
-              ),
-              actionButton(
-                ns("guardar_modelo"),
-                label = tagList(bs_icon("bookmark-plus", class = "me-1"), "Guardar para comparar"),
-                class = "btn btn-outline-secondary"
               )
+          ),
+          div(class = "alert alert-info small py-2 px-3 mt-2",
+              bs_icon("info-circle", class = "me-1"),
+              "Al ajustar el modelo, las covariables numéricas se estandarizan ",
+              "automáticamente en segundo plano para mejorar la convergencia y ",
+              "permitir comparar el peso relativo de cada variable. ",
+              strong("Los gráficos, predicciones y ψ por sitio se muestran siempre en la escala original.")
+          ),
+          tags$hr(),
+          p(class = "small fw-bold text-muted mb-1",
+            bs_icon("floppy", class = "me-1"),
+            "Guardar para comparar"),
+          p(class = "small text-muted mb-2",
+            "Dale un nombre al modelo ajustado y guárdalo. ",
+            "Cambia las covariables, reajusta y guarda otro ",
+            "para comparar en la pestaña ",
+            strong("Comparar modelos"), "."),
+          textInput(
+            ns("nombre_modelo_guardar"),
+            label       = NULL,
+            placeholder = "Ej: nulo, habitat, habitat+distancia…"
+          ),
+          actionButton(
+            ns("guardar_modelo"),
+            label = tagList(bs_icon("bookmark-plus", class = "me-1"),
+                            "Guardar modelo"),
+            class = "btn btn-outline-primary btn-sm w-100"
           ),
           div(class = "mt-3", uiOutput(ns("estado_ajuste_ui")))
         )
       ), # /PESTAÑA 4
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 5: Parámetros
+      # PESTAÑA 6: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("list-ol", class = "me-1"), "Parámetros"),
-        card_body(
+        div(
+          class = "p-3",
           layout_columns(
             col_widths = c(6, 6),
             uiOutput(ns("vbox_psi")),
@@ -588,12 +673,48 @@ mod_ocupacion_ui <- function(id) {
           DTOutput(ns("tabla_coef")),
           h5(style = paste0("color:", colores$primario, "; font-weight:700; margin-top:1rem;"),
              "Intervalos de confianza (escala logit)"),
-          plotOutput(ns("plot_forest"), height = "300px")
+          plotOutput(ns("plot_forest"), height = "300px"),
+          tags$hr(),
+          layout_columns(
+            col_widths = c(6, 6),
+            fill = FALSE,
+            card(
+              card_header(
+                bs_icon("exclamation-triangle", class = "me-1"),
+                "Inflación de varianza (VIF)",
+                span(class = "text-muted small ms-2", "— multicolinealidad")
+              ),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                p(class = "small text-muted mb-2",
+                  "VIF > 5 indica multicolinealidad moderada; ",
+                  "VIF > 10 es problemático."),
+                uiOutput(ns("tabla_vif"))
+              )
+            ),
+            card(
+              card_header(
+                bs_icon("bar-chart-steps", class = "me-1"),
+                "Importancia de covariables",
+                span(class = "text-muted small ms-2",
+                     "— coeficientes estandarizados")
+              ),
+              card_body(
+                style = "height: auto;",
+                p(class = "small text-muted mb-2",
+                  strong("Azul"), " = efecto positivo sobre ψ o p · ",
+                  strong("rojo"), " = efecto negativo. ",
+                  "Barras transparentes = no significativo (p ≥ 0.05)."
+                ),
+                plotOutput(ns("plot_importancia"), height = "280px")
+              )
+            )
+          )
         )
-      ), # /PESTAÑA 5
+      ), # /PESTAÑA 6
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Gráficos
+      # PESTAÑA 7: Gráficos
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"), "Gráficos"),
@@ -619,41 +740,167 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 6
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: ψ por sitio
+      # PESTAÑA 8: ψ por sitio
       # ════════════════════════════════════════════════
       nav_panel(
-        title = tagList(bs_icon("pin-map", class = "me-1"), "ψ por sitio"),
-        card_body(
-          layout_columns(
-            col_widths = c(4, 8),
-            card(
-              class = "border-0",
-              style = paste0("background:", colores$fondo, ";"),
-              card_body(
-                sliderInput(ns("umbral_ocu"), "Umbral de ocupación:",
-                            min = 0, max = 1, value = 0.5, step = 0.05),
-                p(class = "small text-muted",
-                  "Sitios con ψ estimado ≥ umbral = 'probablemente ocupados'."),
-                uiOutput(ns("vbox_sitios_ocu")),
-                tags$br(),
-                downloadButton(ns("descarga_psi_sitio"), "Descargar tabla",
-                               class = "btn btn-outline-secondary btn-sm w-100")
-              )
+        title = tagList(bs_icon("pin-map", class = "me-1"), "\u03c8 por sitio"),
+        div(
+          class = "p-3",
+          navset_tab(
+            # ── Sub-tab 1: ψ por covariables ──────────────
+            nav_panel(
+              title = tagList(bs_icon("sliders", class = "me-1"),
+                              "\u03c8 por covariables"),
+              br(),
+              layout_columns(
+                col_widths = c(4, 8),
+                card(
+                  class = "border-0",
+                  style = paste0("background:", colores$fondo, ";"),
+                  card_body(
+                    sliderInput(ns("umbral_ocu"), "Umbral de ocupaci\u00f3n:",
+                                min = 0, max = 1, value = 0.5, step = 0.05),
+                    p(class = "small text-muted",
+                      "Sitios con \u03c8 estimado \u2265 umbral = 'probablemente ocupados'."),
+                    uiOutput(ns("vbox_sitios_ocu")),
+                    tags$br(),
+                    downloadButton(ns("descarga_psi_sitio"), "Descargar tabla",
+                                   class = "btn btn-outline-secondary btn-sm w-100")
+                  )
+                ),
+                plotOutput(ns("plot_psi_sitio"), height = "420px")
+              ),
+              div(class = "mt-3", DTOutput(ns("tabla_psi_sitio")))
             ),
-            plotOutput(ns("plot_psi_sitio"), height = "420px")
-          ),
-          div(class = "mt-3", DTOutput(ns("tabla_psi_sitio")))
+            
+            # ── Sub-tab 2: ψ posterior (ranef + bup) ──────
+            nav_panel(
+              title = tagList(bs_icon("binoculars-fill", class = "me-1"),
+                              "\u03c8 posterior (ranef + bup)"),
+              br(),
+              p(class = "small text-muted mb-3",
+                strong("predict()"), " estima \u03c8 bas\u00e1ndose solo en las covariables del sitio. ",
+                strong("bup(ranef())"), " actualiza esa estimaci\u00f3n usando las ",
+                strong("detecciones reales"), " observadas. La diferencia es m\u00e1s ",
+                "pronunciada en sitios con historial ", code("0000"),
+                " (muchas visitas sin detecci\u00f3n) cuando la detectabilidad p es alta."
+              ),
+              layout_columns(
+                col_widths = c(6, 6),
+                fill = FALSE,
+                card(
+                  card_header(
+                    bs_icon("graph-up-arrow", class = "me-1"),
+                    "\u03c8 covariables vs. \u03c8 posterior",
+                    span(class = "text-muted small ms-2",
+                         "— puntos bajo la diagonal = evidencia reduce la estimaci\u00f3n")
+                  ),
+                  card_body(
+                    style = "height: auto;",
+                    plotOutput(ns("plot_ranef_scatter"), height = "360px")
+                  )
+                ),
+                card(
+                  card_header(
+                    bs_icon("bar-chart-fill", class = "me-1"),
+                    "Diferencia \u03c8post \u2212 \u03c8cov por sitio"
+                  ),
+                  card_body(
+                    style = "height: auto;",
+                    plotOutput(ns("plot_ranef_diff"), height = "360px")
+                  )
+                )
+              ),
+              div(class = "mt-3",
+                  card(
+                    card_header(bs_icon("table", class = "me-1"),
+                                "Tabla comparativa"),
+                    card_body(
+                      style = "overflow: visible; height: auto;",
+                      DTOutput(ns("tabla_ranef"))
+                    )
+                  )
+              )
+            )
+          )
         )
-      ), # /PESTAÑA 7
+      ), # /PESTAÑA 8
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 8: Comparar modelos
+      # PESTAÑA 9: Performance
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("speedometer2", class = "me-1"), "Performance"),
+        div(
+          class = "p-3",
+          p(class = "small text-muted mb-3",
+            "Evaluaci\u00f3n del poder predictivo del modelo mediante ",
+            strong("validaci\u00f3n cruzada"), " (", code("crossVal()"), " de unmarked) y ",
+            "estimaci\u00f3n del factor de sobredispersi\u00f3n ",
+            strong("\u0109 (c-hat)"), " a partir del bootstrap de bondad de ajuste."
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            fill = FALSE,
+            
+            card(
+              card_header(
+                bs_icon("calculator", class = "me-1"),
+                "Factor de sobredispersi\u00f3n (\u0109 / c-hat)",
+                span(class = "text-muted small ms-2",
+                     "— requiere haber corrido GoF en Diagn\u00f3stico")
+              ),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("ui_chat")),
+                tags$hr(),
+                div(class = "alert alert-info small py-2 px-3 mb-0",
+                    bs_icon("info-circle", class = "me-1"),
+                    strong("\u0109 = \u03c7\u00b2obs / media(\u03c7\u00b2sim)"),
+                    br(),
+                    "\u0109 \u2248 1 = buen ajuste; \u0109 > 2 = sobredispersi\u00f3n moderada; ",
+                    "\u0109 > 3 = sobredispersi\u00f3n severa \u2014 considerar QAICc."
+                )
+              )
+            ),
+            
+            card(
+              card_header(
+                bs_icon("arrow-repeat", class = "me-1"),
+                "Validaci\u00f3n cruzada",
+                span(class = "text-muted small ms-2",
+                     "— crossVal() \u00b7 unmarked")
+              ),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                p(class = "small text-muted mb-2",
+                  "\u00bfQu\u00e9 tan bien predice el modelo datos ",
+                  strong("no vistos"), "?"),
+                layout_columns(
+                  col_widths = c(6, 6),
+                  numericInput(ns("cv_folds"), "Folds (k):",
+                               value = 5, min = 2, max = 10),
+                  div(class = "pt-4",
+                      actionButton(ns("correr_cv"), "Correr CV",
+                                   class = "btn-primary w-100",
+                                   icon = icon("rotate")))
+                ),
+                tags$hr(),
+                uiOutput(ns("resultado_cv"))
+              )
+            )
+          )
+        )
+      ), # /PESTAÑA 9
+      
+      # ════════════════════════════════════════════════
+      # PESTAÑA 10: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("bar-chart-steps", class = "me-1"), "Comparar modelos"),
         card_body(
           p(class = "small text-muted mb-3",
-            "Guarda modelos desde 'Ajustar modelo' y compáralos por AIC."
+            "Guarda modelos desde 'Ajustar modelo' y comp\u00e1ralos por AIC."
           ),
           actionButton(ns("limpiar_modelos"), "Limpiar lista",
                        class = "btn btn-outline-danger btn-sm mb-2",
@@ -682,7 +929,7 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 8
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 9: Diagnóstico
+      # PESTAÑA 11: Diagnóstico
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("clipboard2-pulse", class = "me-1"), "Diagnóstico"),
@@ -756,7 +1003,7 @@ mod_ocupacion_ui <- function(id) {
       ), # /PESTAÑA 9
       
       # ════════════════════════════════════════════════
-      # PESTAÑA 10: Código R
+      # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("code-slash", class = "me-1"), "Código R"),
@@ -779,7 +1026,7 @@ mod_ocupacion_ui <- function(id) {
   ) # /tagList
 }
 
-mod_ocupacion_server <- function(id) {
+mod_occu_unmarked_server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
@@ -996,6 +1243,45 @@ mod_ocupacion_server <- function(id) {
     
     modelo_actual <- reactiveVal(NULL)
     nombre_modelo_actual <- reactiveVal(NULL)
+    
+    # ── Modelo estandarizado (para importancia de variables) ──
+    modelo_actual_std <- eventReactive(input$ajustar_modelo, {
+      req(umf())
+      site_covs <- unmarked::siteCovs(umf())
+      obs_covs  <- unmarked::obsCovs(umf())
+      
+      tryCatch({
+        # Estandarizar covariables numéricas con scale()
+        estandarizar_df <- function(df) {
+          if (is.null(df)) return(NULL)
+          nums <- sapply(df, is.numeric)
+          if (any(nums)) df[, nums] <- scale(df[, nums, drop = FALSE])
+          df
+        }
+        
+        site_std <- estandarizar_df(site_covs)
+        obs_std  <- estandarizar_df(obs_covs)
+        
+        umf_std <- unmarked::unmarkedFrameOccu(
+          y        = unmarked::getY(umf()),
+          siteCovs = site_std,
+          obsCovs  = obs_std
+        )
+        
+        det_str <- if (is.null(input$cov_det) || length(input$cov_det) == 0)
+          "1" else paste(input$cov_det, collapse = " + ")
+        ocu_str <- if (is.null(input$cov_ocu) || length(input$cov_ocu) == 0)
+          "1" else paste(input$cov_ocu, collapse = " + ")
+        fm_formula <- eval(
+          parse(text = paste("~", det_str, "~", ocu_str))[[1]],
+          envir = new.env(parent = baseenv())
+        )
+        unmarked::occu(formula = fm_formula, data = umf_std)
+      }, error = function(e) {
+        message("Error en modelo_actual_std: ", conditionMessage(e))
+        NULL
+      })
+    }, ignoreNULL = TRUE)
     
     observeEvent(input$ajustar_modelo, {
       req(umf())
@@ -1427,14 +1713,30 @@ mod_ocupacion_server <- function(id) {
     modelos_guardados <- reactiveVal(list())
     
     observeEvent(input$guardar_modelo, {
-      req(modelo_actual(), nombre_modelo_actual())
+      fm     <- modelo_actual()
+      nombre <- trimws(input$nombre_modelo_guardar)
+      if (is.null(fm)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      if (nchar(nombre) == 0) {
+        showNotification("Escribe un nombre para el modelo.",
+                         type = "warning", duration = 3)
+        return()
+      }
       nueva_lista <- modelos_guardados()
-      nombre <- nombre_modelo_actual()
-      nueva_lista[[nombre]] <- modelo_actual()
+      nueva_lista[[nombre]] <- list(
+        fit     = fm,
+        formula = nombre_modelo_actual(),
+        cov_ocu = input$cov_ocu,
+        cov_det = input$cov_det
+      )
       modelos_guardados(nueva_lista)
+      updateTextInput(session, "nombre_modelo_guardar", value = "")
       showNotification(
         paste0("Modelo '", nombre, "' guardado."),
-        type = "message"
+        type = "message", duration = 3
       )
     })
     
@@ -1683,6 +1985,401 @@ mod_ocupacion_server <- function(id) {
     })
     
     # ────────────────────────────────────────────────────
+    # PESTAÑA 4: Explorar
+    # ────────────────────────────────────────────────────
+    
+    output$expl_sel_cov <- renderUI({
+      df <- umf(); req(df)
+      site_covs <- siteCovs(df)
+      req(!is.null(site_covs))
+      nums <- names(site_covs)[sapply(site_covs, is.numeric)]
+      req(length(nums) > 0)
+      selectInput(ns("expl_cov"), "Covariable:", choices = nums, selected = nums[1])
+    })
+    
+    output$expl_cards_resumen <- renderUI({
+      df <- umf(); req(df)
+      y_mat <- getY(df)
+      n_sitios    <- nrow(y_mat)
+      n_detectados <- sum(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)), na.rm = TRUE)
+      naive_ocu   <- round(n_detectados / n_sitios, 3)
+      tagList(
+        div(class = "d-flex gap-2 mt-2",
+            div(class = "card text-center flex-fill p-2",
+                style = paste0("background:", colores$fondo),
+                h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
+                   n_detectados),
+                p(class = "small text-muted mb-0", "Sitios con \u22651 detecci\u00f3n")
+            ),
+            div(class = "card text-center flex-fill p-2",
+                style = paste0("background:", colores$fondo),
+                h5(style = paste0("color:", colores$acento, "; font-weight:700;"),
+                   paste0(round(naive_ocu * 100), "%")),
+                p(class = "small text-muted mb-0", "Ocupaci\u00f3n naive")
+            )
+        )
+      )
+    })
+    
+    output$expl_plot_cov <- renderPlot({
+      df <- umf(); req(df, input$expl_cov)
+      y_mat     <- getY(df)
+      site_covs <- siteCovs(df)
+      req(!is.null(site_covs), input$expl_cov %in% names(site_covs))
+      
+      det_naive <- as.integer(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)))
+      x_var     <- site_covs[[input$expl_cov]]
+      
+      df_plot <- data.frame(x = x_var, det = det_naive)
+      
+      ggplot2::ggplot(df_plot, ggplot2::aes(x = x, y = det)) +
+        ggplot2::geom_jitter(height = 0.04, alpha = 0.4, size = 2,
+                             color = colores$primario) +
+        ggplot2::geom_smooth(method = "glm", formula = y ~ x,
+                             method.args = list(family = binomial()),
+                             se = TRUE, color = colores$acento,
+                             fill = colores$secundario, alpha = 0.15,
+                             linewidth = 1.2) +
+        ggplot2::scale_y_continuous(breaks = c(0, 1),
+                                    labels = c("0 (no detectado)", "1 (detectado)")) +
+        ggplot2::labs(x = input$expl_cov, y = "Detecci\u00f3n naive",
+                      subtitle = paste0("Curva log\u00edstica \u2014 n = ",
+                                        nrow(df_plot), " sitios")) +
+        ggplot2::theme_minimal(base_size = 13) +
+        ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
+                       plot.subtitle = ggplot2::element_text(
+                         color = colores$texto, size = 9))
+    }, res = 96)
+    
+    output$expl_plot_corr <- renderPlot({
+      df <- umf(); req(df)
+      site_covs <- siteCovs(df)
+      req(!is.null(site_covs))
+      nums <- site_covs[, sapply(site_covs, is.numeric), drop = FALSE]
+      req(ncol(nums) >= 2)
+      
+      cor_mat <- cor(nums, use = "complete.obs")
+      df_cor  <- as.data.frame(as.table(cor_mat))
+      names(df_cor) <- c("Var1", "Var2", "Correlation")
+      
+      ggplot2::ggplot(df_cor, ggplot2::aes(x = Var1, y = Var2,
+                                           fill = Correlation)) +
+        ggplot2::geom_tile(color = "white") +
+        ggplot2::geom_text(ggplot2::aes(
+          label = round(Correlation, 2)),
+          size = 3.5, color = "white") +
+        ggplot2::scale_fill_gradient2(
+          low = colores$peligro, mid = "white",
+          high = colores$primario, midpoint = 0,
+          limits = c(-1, 1), name = "r") +
+        ggplot2::labs(x = NULL, y = NULL) +
+        ggplot2::theme_minimal(base_size = 12) +
+        ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+                       panel.grid = ggplot2::element_blank())
+    }, res = 96)
+    
+    # ────────────────────────────────────────────────────
+    # PARÁMETROS: VIF + Importancia
+    # ────────────────────────────────────────────────────
+    
+    output$tabla_vif <- renderUI({
+      fm <- modelo_actual(); req(fm)
+      tryCatch({
+        vif_res <- unmarked::vif(fm, type = "state")
+        df_vif  <- data.frame(
+          Covariable = names(vif_res),
+          VIF        = round(vif_res, 3)
+        )
+        df_vif$Estado <- ifelse(df_vif$VIF > 10, "⚠ Severo",
+                                ifelse(df_vif$VIF > 5,  "⚠ Moderado", "✓ OK"))
+        col_estado <- ifelse(df_vif$VIF > 10, colores$peligro,
+                             ifelse(df_vif$VIF > 5,  colores$acento, colores$exito))
+        filas <- lapply(seq_len(nrow(df_vif)), function(i) {
+          tags$tr(
+            tags$td(strong(df_vif$Covariable[i])),
+            tags$td(style = "text-align:center;", df_vif$VIF[i]),
+            tags$td(style = paste0("color:", col_estado[i],
+                                   "; font-weight:600; text-align:center;"),
+                    df_vif$Estado[i])
+          )
+        })
+        tags$table(
+          class = "table table-sm small mb-0",
+          tags$thead(tags$tr(
+            tags$th("Covariable"), tags$th("VIF"), tags$th("Estado")
+          )),
+          tags$tbody(filas)
+        )
+      }, error = function(e) {
+        p(class = "small text-muted",
+          "VIF disponible solo con \u22652 covariables en el submodelo de ocupaci\u00f3n.")
+      })
+    })
+    
+    output$plot_importancia <- renderPlot({
+      fm_std <- modelo_actual_std(); req(fm_std)
+      tryCatch({
+        # Extraer coeficientes de ambos submodelos
+        est_state <- unmarked::coef(fm_std, type = "state")
+        est_det   <- unmarked::coef(fm_std, type = "det")
+        se_state  <- unmarked::SE(fm_std, type = "state")
+        se_det    <- unmarked::SE(fm_std, type = "det")
+        
+        # Combinar en un data.frame
+        coef_all <- c(est_state, est_det)
+        se_all   <- c(se_state,  se_det)
+        submod   <- c(rep("Ocupación (ψ)", length(est_state)),
+                      rep("Detección (p)",  length(est_det)))
+        
+        # z-value para significancia aproximada
+        z_all  <- coef_all / se_all
+        p_all  <- 2 * pnorm(-abs(z_all))
+        
+        coef_df <- data.frame(
+          param    = names(coef_all),
+          Estimate = coef_all,
+          SE       = se_all,
+          p        = p_all,
+          submodelo = submod,
+          row.names = NULL
+        )
+        
+        # Quitar interceptos
+        coef_df <- coef_df[!grepl("\\(Intercept\\)", coef_df$param), ]
+        if (nrow(coef_df) == 0) return(
+          ggplot2::ggplot() +
+            ggplot2::annotate("text", x = 0.5, y = 0.5,
+                              label = "No hay covariables en el modelo.",
+                              color = colores$texto, size = 4) +
+            ggplot2::theme_void()
+        )
+        
+        coef_df$abs_est <- abs(coef_df$Estimate)
+        coef_df$dir     <- ifelse(coef_df$Estimate >= 0, "Positivo", "Negativo")
+        coef_df$sig_chr <- ifelse(!is.na(coef_df$p) & coef_df$p < 0.05,
+                                  "sig", "no_sig")
+        coef_df$param   <- factor(coef_df$param,
+                                  levels = coef_df$param[order(coef_df$abs_est)])
+        
+        ggplot2::ggplot(coef_df,
+                        ggplot2::aes(x = abs_est, y = param,
+                                     fill = dir, alpha = sig_chr)) +
+          ggplot2::geom_col(width = 0.65) +
+          ggplot2::geom_text(
+            ggplot2::aes(label = sprintf("%+.3f", Estimate)),
+            hjust = -0.15, size = 3.5, color = colores$texto) +
+          ggplot2::facet_grid(submodelo ~ ., scales = "free_y", space = "free_y") +
+          ggplot2::scale_fill_manual(
+            values = c("Positivo" = colores$primario,
+                       "Negativo" = colores$peligro),
+            name = "Direcci\u00f3n") +
+          ggplot2::scale_alpha_manual(
+            values = c("sig" = 1, "no_sig" = 0.35), guide = "none") +
+          ggplot2::scale_x_continuous(
+            expand = ggplot2::expansion(mult = c(0, 0.2))) +
+          ggplot2::labs(
+            x = "Importancia (\u03b2 estandarizado en SD)",
+            y = NULL,
+            subtitle = "Barras transparentes = p \u2265 0.05 \u00b7 Mayor barra = mayor peso relativo") +
+          ggplot2::theme_minimal(base_size = 12) +
+          ggplot2::theme(
+            panel.grid.minor   = ggplot2::element_blank(),
+            panel.grid.major.y = ggplot2::element_blank(),
+            legend.position    = "bottom",
+            strip.text         = ggplot2::element_text(
+              color = colores$primario, face = "bold"),
+            plot.subtitle      = ggplot2::element_text(
+              color = colores$texto, size = 9))
+      }, error = function(e) {
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = "Ajusta el modelo para ver la importancia.",
+                            color = colores$texto, size = 4) +
+          ggplot2::theme_void()
+      })
+    }, res = 96)
+    
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 8: ψ por sitio — ranef + bup
+    # ────────────────────────────────────────────────────
+    
+    ranef_data <- reactive({
+      fm <- modelo_actual(); req(fm)
+      tryCatch({
+        re     <- unmarked::ranef(fm)
+        bup_m  <- unmarked::bup(re, stat = "mean")
+        preds  <- unmarked::predict(fm, type = "state")
+        y_mat  <- unmarked::getY(fm@data)
+        hist_v <- apply(y_mat, 1, function(x)
+          paste(ifelse(is.na(x), "NA", as.character(x)), collapse = ""))
+        data.frame(
+          sitio     = paste("Sitio", seq_along(bup_m)),
+          psi_cov   = round(preds$Predicted, 4),
+          psi_post  = round(bup_m, 4),
+          diff      = round(bup_m - preds$Predicted, 4),
+          historial = hist_v
+        )
+      }, error = function(e) NULL)
+    })
+    
+    output$plot_ranef_scatter <- renderPlot({
+      df <- ranef_data(); req(df)
+      ggplot2::ggplot(df, ggplot2::aes(x = psi_cov, y = psi_post,
+                                       color = historial)) +
+        ggplot2::geom_abline(slope = 1, intercept = 0,
+                             linetype = "dashed", color = colores$texto,
+                             linewidth = 0.8) +
+        ggplot2::geom_point(size = 2.5, alpha = 0.7) +
+        ggplot2::scale_color_viridis_d(name = "Historial", option = "D") +
+        ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
+        ggplot2::labs(
+          x = "\u03c8 por covariables (predict)",
+          y = "\u03c8 posterior (bup \u00b7 ranef)",
+          subtitle = paste0(
+            "Puntos bajo la diagonal = detecciones reducen la estimaci\u00f3n. ",
+            "Puntos con historial 0000 tienden a estar m\u00e1s abajo.")) +
+        ggplot2::theme_minimal(base_size = 12) +
+        ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
+                       legend.position  = "bottom",
+                       plot.subtitle    = ggplot2::element_text(
+                         color = colores$texto, size = 8))
+    }, res = 96)
+    
+    output$plot_ranef_diff <- renderPlot({
+      df <- ranef_data(); req(df)
+      df <- df[order(df$diff), ]
+      df$sitio <- factor(df$sitio, levels = df$sitio)
+      ggplot2::ggplot(df, ggplot2::aes(x = diff, y = sitio,
+                                       fill = diff > 0)) +
+        ggplot2::geom_col(width = 0.7) +
+        ggplot2::geom_vline(xintercept = 0, linewidth = 0.7,
+                            color = colores$texto) +
+        ggplot2::scale_fill_manual(
+          values = c("TRUE" = colores$primario,
+                     "FALSE" = colores$peligro),
+          guide = "none") +
+        ggplot2::labs(
+          x = "\u03c8post \u2212 \u03c8cov",
+          y = NULL,
+          subtitle = "Rojo = detecciones reducen la estimaci\u00f3n (menos ocupaci\u00f3n de la esperada)") +
+        ggplot2::theme_minimal(base_size = 11) +
+        ggplot2::theme(
+          axis.text.y      = ggplot2::element_text(size = 7),
+          panel.grid.minor = ggplot2::element_blank(),
+          panel.grid.major.y = ggplot2::element_blank(),
+          plot.subtitle    = ggplot2::element_text(
+            color = colores$texto, size = 8))
+    }, res = 96)
+    
+    output$tabla_ranef <- renderDT({
+      df <- ranef_data(); req(df)
+      datatable(
+        df,
+        colnames = c("Sitio", "\u03c8 covariables", "\u03c8 posterior",
+                     "Diferencia", "Historial"),
+        options  = list(pageLength = 10, scrollX = TRUE,
+                        dom = "tp",
+                        language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json")),
+        rownames = FALSE,
+        class    = "table-sm table-striped"
+      ) |>
+        formatStyle("diff",
+                    color = styleInterval(0, c(colores$peligro, colores$primario)),
+                    fontWeight = "bold")
+    })
+    
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 9: Performance — c-hat + crossVal
+    # ────────────────────────────────────────────────────
+    
+    output$ui_chat <- renderUI({
+      res <- resultado_gof()
+      if (is.null(res)) return(
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            "Corre primero el GoF en la pesta\u00f1a ", strong("Diagn\u00f3stico"),
+            " para calcular c-hat.")
+      )
+      tobs  <- res@t0[1]
+      tsim  <- res@t.star[, 1]
+      chat  <- round(tobs / mean(tsim), 3)
+      col   <- if (chat > 3) colores$peligro else
+        if (chat > 2) colores$acento  else colores$exito
+      tagList(
+        div(class = "text-center py-3",
+            h2(style = paste0("color:", col, "; font-weight:700; font-size:2.5rem;"),
+               chat),
+            p(class = "text-muted mb-0", strong("\u0109 (c-hat)")),
+            p(class = "small text-muted",
+              if (chat <= 1.5) "\u2714 Buen ajuste (\u0109 \u2248 1)"
+              else if (chat <= 2) "\u26a0 Sobredispersi\u00f3n leve"
+              else if (chat <= 3) "\u26a0 Sobredispersi\u00f3n moderada — considerar QAICc"
+              else "\u274c Sobredispersi\u00f3n severa — revisar el modelo"
+            )
+        ),
+        tags$hr(),
+        div(class = "small text-muted",
+            p(strong("\u03c7\u00b2 observado: "), round(tobs, 2)),
+            p(strong("Media \u03c7\u00b2 simulado: "), round(mean(tsim), 2)),
+            p(strong("Simulaciones: "), length(tsim))
+        )
+      )
+    })
+    
+    cv_resultado <- reactiveVal(NULL)
+    
+    observeEvent(input$correr_cv, {
+      fm <- modelo_actual()
+      if (is.null(fm)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      withProgress(message = "Corriendo validaci\u00f3n cruzada...", value = 0.3, {
+        tryCatch({
+          res_cv <- unmarked::crossVal(fm, method = "Kfold",
+                                       folds = input$cv_folds)
+          cv_resultado(res_cv)
+        }, error = function(e) {
+          showNotification(paste("Error en CV:", conditionMessage(e)),
+                           type = "error", duration = 6)
+        })
+      })
+    })
+    
+    output$resultado_cv <- renderUI({
+      res <- cv_resultado()
+      if (is.null(res)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("arrow-repeat", class = "me-2"),
+            "Haz clic en ", strong("Correr CV"), " para evaluar.")
+      )
+      tryCatch({
+        s   <- summary(res)
+        df  <- as.data.frame(s)
+        tagList(
+          tags$table(
+            class = "table table-sm small mb-2",
+            tags$thead(tags$tr(
+              lapply(names(df), tags$th)
+            )),
+            tags$tbody(lapply(seq_len(nrow(df)), function(i) {
+              tags$tr(lapply(df[i, ], function(v)
+                tags$td(if (is.numeric(v)) round(v, 4) else v)))
+            }))
+          ),
+          div(class = "alert alert-info small py-2 px-3 mb-0",
+              bs_icon("info-circle", class = "me-1"),
+              strong(paste0(input$cv_folds, "-fold CV")),
+              " \u2014 menor RMSE = mejor capacidad predictiva.")
+        )
+      }, error = function(e) {
+        div(class = "text-danger small",
+            paste("Error al mostrar resultados:", conditionMessage(e)))
+      })
+    })
+    
+    # ────────────────────────────────────────────────────
     # CÓDIGO R
     # ────────────────────────────────────────────────────
     
@@ -1772,4 +2469,4 @@ mod_ocupacion_server <- function(id) {
     )
     
   }) # /moduleServer
-} # /mod_ocupacion_server
+} # /mod_occu_unmarked_server
