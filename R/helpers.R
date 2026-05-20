@@ -4,14 +4,6 @@
 # Paleta: Tableau Color Blind (coherente con StatSuite)
 # ============================================================
 
-library(shiny)
-library(shinyjs)
-library(bslib)
-library(bsicons)
-library(tidyverse)
-library(DT)
-library(readxl)
-library(unmarked)
 
 # ── Paleta de colores (idéntica a StatSuite) ───────────────
 colores <- list(

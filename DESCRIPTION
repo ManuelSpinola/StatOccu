@@ -14,6 +14,7 @@ Description: A Shiny-based interactive platform for occupancy modeling,
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
 Imports:
     shiny (>= 1.8.0),
     bslib (>= 0.7.0),
