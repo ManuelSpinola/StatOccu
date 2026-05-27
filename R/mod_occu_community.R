@@ -452,8 +452,10 @@ mod_occu_community_ui <- function(id) {
                           "Coeficientes del modelo"),
               card_body(
                 p(class = "small text-muted mb-2",
-                  "Estimaciones en escala logit con IC 95%. ",
-                  "Valores positivos aumentan \u03c8 o p; negativos la reducen."),
+                  "Efectos fijos de la comunidad en escala logit \u00b1 IC 95%. ",
+                  "Representan el efecto ",tags$strong("promedio entre todas las especies"),
+                  ". Valores positivos aumentan \u03c8 o p; negativos la reducen. ",
+                  "Un IC que no cruza el cero indica un efecto significativo."),
                 plotOutput(ns("plot_coefs"), height = "280px")
               )
             ),
@@ -462,9 +464,10 @@ mod_occu_community_ui <- function(id) {
                           "Distribuci\u00f3n de \u03c8 por especie"),
               card_body(
                 p(class = "small text-muted mb-2",
-                  "\u03c8 predicha en cada sitio para cada especie (boxplot). ",
-                  "Muestra c\u00f3mo var\u00eda la ocupaci\u00f3n entre sitios, ",
-                  "reflejando el efecto de las covariables de sitio."),
+                  "Cada caja muestra la ",tags$strong("distribuci\u00f3n de \u03c8 entre sitios"),
+                  " para cada especie. Una caja amplia indica que la especie responde ",
+                  "fuertemente a las covariables de sitio. La l\u00ednea central es la mediana. ",
+                  "Las especies est\u00e1n ordenadas de menor a mayor ocupaci\u00f3n media."),
                 plotOutput(ns("plot_caterpillar"), height = "280px")
               )
             )
@@ -474,6 +477,11 @@ mod_occu_community_ui <- function(id) {
               card_header(bs_icon("bezier2", class = "me-1"),
                           "Efectos marginales"),
               card_body(
+                p(class = "small text-muted mb-2",
+                  "Curva de respuesta de \u03c8 o p para la especie seleccionada, ",
+                  "variando una covariable y manteniendo las dem\u00e1s en su media. ",
+                  "Refleja tanto el efecto fijo de la comunidad como el intercepto ",
+                  "aleatorio propio de esa especie \u00b1 IC 95%."),
                 layout_columns(
                   col_widths = c(3, 9),
                   div(uiOutput(ns("sel_cov_marginal"))),
@@ -522,9 +530,6 @@ mod_occu_community_ui <- function(id) {
         )
       ),
 
-      # ════════════════════════════════════════════════
-      # PESTAÑA 8: Predicciones
-      # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("pin-map", class = "me-1"), "Predicciones"),
         div(class = "p-3",
@@ -535,7 +540,6 @@ mod_occu_community_ui <- function(id) {
                 class = "mb-3",
                 card_header(bs_icon("sliders", class = "me-1"), "Opciones"),
                 card_body(
-                  uiOutput(ns("sel_especie_pred")),
                   selectInput(ns("tipo_pred"), "Tipo de predicci\u00f3n:",
                               choices = c("Ocupaci\u00f3n (\u03c8)" = "state",
                                           "Detecci\u00f3n (p)"    = "det"),
@@ -546,9 +550,15 @@ mod_occu_community_ui <- function(id) {
                 )
               ),
               card(
+                class = "mb-3",
                 card_header(bs_icon("info-circle", class = "me-1"),
                             "Riqueza local esperada"),
                 card_body(uiOutput(ns("riqueza_estimada")))
+              ),
+              card(
+                card_header(bs_icon("table", class = "me-1"),
+                            "Tabla de predicciones"),
+                card_body(DT::DTOutput(ns("tabla_predicciones")))
               )
             ),
             div(
@@ -556,12 +566,27 @@ mod_occu_community_ui <- function(id) {
                 class = "mb-3",
                 card_header(bs_icon("bar-chart", class = "me-1"),
                             "Ocupaci\u00f3n predicha por especie"),
-                card_body(plotOutput(ns("plot_pred_especies"), height = "350px"))
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    tags$strong("\u03c8 media estimada por especie \u00b1 IC 95%"),
+                    ", promediada sobre todos los sitios. Las especies con intervalos ",
+                    "amplios tienen mayor incertidumbre, generalmente por pocas detecciones. ",
+                    "Ordenadas de menor a mayor."),
+                  plotOutput(ns("plot_pred_especies"), height = "320px")
+                )
               ),
               card(
-                card_header(bs_icon("table", class = "me-1"),
-                            "Tabla de predicciones"),
-                card_body(DT::DTOutput(ns("tabla_predicciones")))
+                card_header(bs_icon("diagram-3", class = "me-1"),
+                            "Riqueza estimada vs observada por sitio"),
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    "Cada punto es un ",tags$strong("sitio"),
+                    ". El eje x muestra cu\u00e1ntas especies fueron detectadas en ese sitio; ",
+                    "el eje y cu\u00e1ntas estima el modelo que realmente lo ocupan. ",
+                    "Puntos sobre la diagonal = el modelo detecta m\u00e1s especies de las observadas, ",
+                    "efecto de la detecci\u00f3n imperfecta. Las barras son IC 95%."),
+                  plotOutput(ns("plot_riqueza_sitio"), height = "400px")
+                )
               )
             )
           )
@@ -1444,12 +1469,6 @@ mod_occu_community_server <- function(id) {
 
     # ── Predicciones ─────────────────────────────────────
 
-    output$sel_especie_pred <- renderUI({
-      d <- datos_activos(); req(d)
-      selectInput(ns("especie_pred"), "Especie:",
-                  choices  = c("Todas" = "todas", names(d$ylist)),
-                  selected = "todas")
-    })
 
     observeEvent(input$predecir, {
       fm <- modelo_fit()
@@ -1458,6 +1477,41 @@ mod_occu_community_server <- function(id) {
       }
       showNotification(paste0("Calculando predicciones (", input$tipo_pred, ")\u2026"),
                        duration = 2)
+    })
+
+    output$plot_riqueza_sitio <- renderPlot({
+      fm <- modelo_fit(); req(fm)
+      d  <- datos_activos(); req(d)
+      input$predecir
+      tryCatch({
+        # Riqueza estimada con IC usando posterior
+        post    <- unmarked::richness(fm, posterior = TRUE)
+        samples <- drop(post@samples)
+        est <- apply(samples, 1, mean)
+        lo  <- apply(samples, 1, quantile, 0.025)
+        hi  <- apply(samples, 1, quantile, 0.975)
+        # Riqueza observada por sitio
+        rich_obs <- sapply(seq_len(d$nsite), function(i) {
+          sum(sapply(d$ylist, function(y) any(y[i,] == 1, na.rm = TRUE)))
+        })
+        df <- data.frame(obs = rich_obs, est = est, lo = lo, hi = hi)
+        pos <- ggplot2::position_jitter(width = 0.15, height = 0, seed = 42)
+        ggplot2::ggplot(df, ggplot2::aes(x = obs, y = est)) +
+          ggplot2::geom_abline(intercept = 0, slope = 1,
+                               linetype = "dashed", color = colores$texto, alpha = 0.5) +
+          ggplot2::geom_errorbar(ggplot2::aes(ymin = lo, ymax = hi),
+                                 width = 0.1, color = colores$secundario, alpha = 0.5,
+                                 position = pos) +
+          ggplot2::geom_point(color = colores$primario, alpha = 0.7, size = 2.5,
+                              position = pos) +
+          ggplot2::labs(
+            x = "Especies detectadas por sitio",
+            y = "Riqueza estimada por sitio \u00b1 IC 95%",
+            caption = "Cada punto = un sitio. Diagonal = estimado igual a observado."
+          ) +
+          ggplot2::theme_minimal(base_size = 11) +
+          ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+      }, error = function(e) NULL)
     })
 
     output$plot_pred_especies <- renderPlot({
