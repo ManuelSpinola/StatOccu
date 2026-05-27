@@ -31,7 +31,14 @@ app_ui <- function() {
       mod_occu_unmarked_ui("occu_unmarked")
     ),
 
-    # ── Módulo 2: ubms (próximamente) ─────────────────────
+    # ── Módulo 2: comunidades (unmarked) ─────────────────
+    nav_panel(
+      title = "Comunidades (occuComm)",
+      icon  = bs_icon("grid-3x3-gap"),
+      mod_occu_community_ui("occu_community")
+    ),
+
+    # ── Módulo 3: ubms (próximamente) ─────────────────────
     nav_panel(
       title = "Ocupaci\u00f3n bayesiana (ubms \u00b7 Stan)",
       icon  = bs_icon("distribute-vertical"),

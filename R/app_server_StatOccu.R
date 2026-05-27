@@ -4,5 +4,6 @@
 #' @noRd
 app_server <- function(input, output, session) {
   mod_occu_unmarked_server("occu_unmarked")
+  mod_occu_community_server("occu_community")
   mod_acerca_de_server("acerca_de")
 }
