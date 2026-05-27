@@ -474,16 +474,10 @@ mod_occu_community_ui <- function(id) {
               card_header(bs_icon("bezier2", class = "me-1"),
                           "Efectos marginales"),
               card_body(
-                p(class = "small text-muted mb-2",
-                  "Curva de respuesta de \u03c8 o p sobre el rango de la covariable seleccionada, ",
-                  "manteniendo las dem\u00e1s en su valor promedio. ",
-                  "L\u00ednea = media de la comunidad \u00b1 IC 95%."),
                 layout_columns(
                   col_widths = c(3, 9),
-                  div(
-                    uiOutput(ns("sel_cov_marginal"))
-                  ),
-                  plotOutput(ns("plot_marginal"), height = "300px")
+                  div(uiOutput(ns("sel_cov_marginal"))),
+                  plotOutput(ns("plot_marginal"), height = "420px")
                 )
               )
             )
@@ -602,6 +596,7 @@ mod_occu_community_server <- function(id) {
     datos_activos <- reactiveVal(.cargar_datos_comunidad())
     umf_obj       <- reactiveVal(NULL)
     modelo_fit    <- reactiveVal(NULL)
+    scale_info    <- reactiveVal(list())  # guarda center/scale por covariable
 
     # Cargar datos propios
     observeEvent(input$archivo_rds, {
@@ -722,7 +717,19 @@ mod_occu_community_server <- function(id) {
           sitecov <- sitecov[, input$cov_sitio, drop = FALSE]
         }
         if (isTRUE(input$estandarizar)) {
-          sitecov <- as.data.frame(scale(sitecov))
+          sitecov_scaled <- scale(sitecov)
+          si <- list()
+          for (v in names(sitecov)) {
+            si[[v]] <- list(
+              center = attr(sitecov_scaled, "scaled:center")[v],
+              scale  = attr(sitecov_scaled, "scaled:scale")[v],
+              raw    = sitecov[[v]]
+            )
+          }
+          scale_info(si)
+          sitecov <- as.data.frame(sitecov_scaled)
+        } else {
+          scale_info(list())
         }
 
         spcov <- NULL
@@ -1000,41 +1007,6 @@ mod_occu_community_server <- function(id) {
       }
     })
 
-    # Preparar unmarkedFrame
-    observeEvent(input$preparar, {
-      d <- datos_activos(); req(d)
-      tryCatch({
-        sitecov <- d$sitecov
-        if (!is.null(input$cov_sitio) && length(input$cov_sitio) > 0) {
-          sitecov <- sitecov[, input$cov_sitio, drop = FALSE]
-        }
-        if (isTRUE(input$estandarizar)) {
-          sitecov <- as.data.frame(scale(sitecov))
-        }
-
-        spcov <- NULL
-        if (!is.null(d$spcov) && !is.null(input$cov_especie) &&
-            length(input$cov_especie) > 0) {
-          spcov <- d$spcov[input$cov_especie]
-        }
-
-        obscov_umf <- NULL
-        if (!is.null(d$obscov) && !is.null(input$cov_obs) &&
-            length(input$cov_obs) > 0) {
-          obscov_umf <- d$obscov[input$cov_obs]
-        }
-        umf <- unmarked::unmarkedFrameOccuComm(
-          y           = d$ylist,
-          siteCovs    = sitecov,
-          obsCovs     = obscov_umf,
-          speciesCovs = spcov
-        )
-        umf_obj(umf)
-        showNotification("unmarkedFrame preparado.", type = "message", duration = 3)
-      }, error = function(e) {
-        showNotification(paste("Error:", conditionMessage(e)), type = "error")
-      })
-    })
 
     output$estado_umf <- renderUI({
       if (is.null(umf_obj())) return(NULL)
@@ -1257,11 +1229,18 @@ mod_occu_community_server <- function(id) {
       fm  <- modelo_fit(); req(fm)
       umf <- umf_obj(); req(umf)
       submod <- input$submod_marginal %||% "state"
-      cov_choices <- if (submod == "state") {
-        names(umf@siteCovs)
+      # Mostrar solo covariables que están EN el modelo
+      if (submod == "state") {
+        cf      <- coef(fm["state"])
+        en_modelo <- names(umf@siteCovs)[sapply(names(umf@siteCovs), function(v)
+          any(grepl(v, names(cf))))]
+        cov_choices <- if (length(en_modelo) > 0) en_modelo else names(umf@siteCovs)
       } else {
-        if (!is.null(umf@obsCovs) && length(umf@obsCovs) > 0)
-          names(umf@obsCovs) else character(0)
+        cf_det    <- coef(fm["det"])
+        obs_names <- if (!is.null(umf@obsCovs)) names(umf@obsCovs) else character(0)
+        en_modelo <- obs_names[sapply(obs_names, function(v)
+          any(grepl(v, names(cf_det))))]
+        cov_choices <- if (length(en_modelo) > 0) en_modelo else obs_names
       }
       sp_names <- names(umf@ylist)
       tagList(
@@ -1273,7 +1252,8 @@ mod_occu_community_server <- function(id) {
           selectInput(ns("cov_marginal"), "Covariable:",
                       choices = cov_choices, selected = cov_choices[1])
         else
-          p(class = "small text-muted", "Sin covariables para este submodelo."),
+          p(class = "small text-muted",
+            "No hay covariables para este submodelo en el modelo ajustado."),
         selectInput(ns("especie_marginal"), "Especie:",
                     choices = sp_names, selected = sp_names[1])
       )
@@ -1282,71 +1262,63 @@ mod_occu_community_server <- function(id) {
     output$plot_marginal <- renderPlot({
       fm       <- modelo_fit(); req(fm)
       umf      <- umf_obj(); req(umf)
+      d        <- datos_activos(); req(d)
       submod   <- input$submod_marginal %||% "state"
-      cov_name <- input$cov_marginal; req(cov_name)
       especie  <- input$especie_marginal
       sp_names <- names(umf@ylist)
       if (is.null(especie) || !especie %in% sp_names) especie <- sp_names[1]
       tryCatch({
+        # Determinar sc según submodelo
         if (submod == "state") {
-          # predict() funciona bien para ocupación
-          sc <- umf@siteCovs
-          req(cov_name %in% names(sc))
-          cov_seq <- seq(min(sc[[cov_name]], na.rm = TRUE),
-                         max(sc[[cov_name]], na.rm = TRUE), length.out = 50)
-          nd <- as.data.frame(lapply(names(sc), function(v)
-            rep(mean(sc[[v]], na.rm = TRUE), 50)))
-          names(nd) <- names(sc)
-          nd[[cov_name]] <- cov_seq
-          nd$species <- especie
-          pr <- unmarked::predict(fm, type = "state", newdata = nd)
-          req(is.data.frame(pr))
-          df_plot <- data.frame(cov = cov_seq, est = pr$Predicted,
-                                lo = pr$lower, hi = pr$upper)
+          sc   <- umf@siteCovs
+          # Usar valores originales para eje x si están disponibles
+          si   <- scale_info()
+          type <- "state"
           ylab <- "Ocupaci\u00f3n (\u03c8)"
-          caption <- paste("Especie:", especie, "\u00b7 IC 95%")
-
         } else {
-          # Para detección predict() no responde a newdata con obsCovs en occuComm
-          # Calcular manualmente con coeficientes fijos
-          req(!is.null(umf@obsCovs) && length(umf@obsCovs) > 0)
-          sc <- as.data.frame(lapply(umf@obsCovs, function(x) x[, 1]))
-          names(sc) <- names(umf@obsCovs)
-          req(cov_name %in% names(sc))
-          cov_seq <- seq(min(sc[[cov_name]], na.rm = TRUE),
-                         max(sc[[cov_name]], na.rm = TRUE), length.out = 50)
-          cf_det  <- coef(fm["det"])
-          # Intercepto fijo
-          int_val  <- cf_det[grepl("Int", names(cf_det))]
-          # Pendiente de la covariable
-          beta_val <- cf_det[grepl(paste0("p\\(", cov_name, "\\)"), names(cf_det))]
-          if (length(beta_val) == 0)
-            beta_val <- cf_det[grepl(cov_name, names(cf_det)) &
-                                !grepl("Int", names(cf_det))]
-          req(length(beta_val) > 0)
-          eta <- as.numeric(int_val) + as.numeric(beta_val) * cov_seq
-          # SE aproximado con delta method
-          se_int  <- sqrt(diag(vcov(fm["det"])))[1]
-          se_beta <- sqrt(diag(vcov(fm["det"])))[length(beta_val) + 1]
-          se_eta  <- sqrt(se_int^2 + (cov_seq * se_beta)^2)
-          df_plot <- data.frame(
-            cov = cov_seq,
-            est = plogis(eta),
-            lo  = plogis(eta - 1.96 * se_eta),
-            hi  = plogis(eta + 1.96 * se_eta)
-          )
+          if (is.null(umf@obsCovs) || nrow(umf@obsCovs) == 0) {
+            return(ggplot2::ggplot() +
+              ggplot2::annotate("text", x=0.5, y=0.5,
+                label="No hay covariables de observaci\u00f3n en el modelo.",
+                size=5, color="gray50") +
+              ggplot2::theme_void())
+          }
+          nsite   <- nrow(umf@siteCovs)
+          sc      <- umf@obsCovs[1:nsite, , drop = FALSE]
+          si      <- list()  # obs covs no tienen scale_info por ahora
+          type    <- "det"
           ylab    <- "Detecci\u00f3n (p)"
-          caption <- paste("Efecto fijo de la comunidad \u00b7 IC 95% (delta method)")
         }
-
+        cov_name <- input$cov_marginal
+        if (is.null(cov_name) || !cov_name %in% names(sc)) cov_name <- names(sc)[1]
+        req(cov_name)
+        cov_seq <- seq(min(sc[[cov_name]], na.rm = TRUE),
+                       max(sc[[cov_name]], na.rm = TRUE), length.out = 50)
+        # Eje x: valores originales si hay scale_info, si no los estandarizados
+        if (!is.null(si[[cov_name]])) {
+          cov_seq_raw <- si[[cov_name]]$center + si[[cov_name]]$scale * cov_seq
+          xlab <- cov_name
+        } else {
+          cov_seq_raw <- cov_seq
+          xlab <- paste0(cov_name, " (estandarizado)")
+        }
+        nd <- as.data.frame(lapply(names(sc), function(v)
+          rep(mean(sc[[v]], na.rm = TRUE), 50)))
+        names(nd) <- names(sc)
+        nd[[cov_name]] <- cov_seq
+        nd$species     <- especie
+        pr <- unmarked::predict(fm, type = type, newdata = nd)
+        req(is.data.frame(pr))
+        df_plot <- data.frame(cov = cov_seq_raw, est = pr$Predicted,
+                              lo = pr$lower, hi = pr$upper)
         ggplot2::ggplot(df_plot, ggplot2::aes(x = cov, y = est)) +
           ggplot2::geom_ribbon(ggplot2::aes(ymin = lo, ymax = hi),
                                fill = colores$secundario, alpha = 0.25) +
           ggplot2::geom_line(color = colores$primario, linewidth = 1.2) +
           ggplot2::scale_y_continuous(limits = c(0, 1)) +
-          ggplot2::labs(x = cov_name, y = ylab,
-                        title = if (submod == "state") especie else NULL,
-                        caption = caption) +
+          ggplot2::labs(x = xlab, y = ylab,
+                        title = especie,
+                        caption = "IC 95%") +
           ggplot2::theme_minimal(base_size = 12) +
           ggplot2::theme(
             panel.grid.minor = ggplot2::element_blank(),
@@ -1568,7 +1540,11 @@ mod_occu_community_server <- function(id) {
               bs_icon("grid-3x3-gap", class = "me-1"),
               strong("Riqueza local media: "), riq_est,
               tags$br(),
-              "IC 95%: ", riq_lo, " \u2013 ", riq_hi),
+              "IC 95%: ", riq_lo, " \u2013 ", riq_hi,
+              tags$br(),
+              "Rango entre sitios: ",
+              round(min(est_por_sitio), 1), " \u2013 ",
+              round(max(est_por_sitio), 1)),
           div(class = "alert alert-warning small py-2 px-3 mb-0",
               bs_icon("info-circle", class = "me-1"),
               "N\u00famero esperado de especies ocupando un sitio t\u00edpico. ",
