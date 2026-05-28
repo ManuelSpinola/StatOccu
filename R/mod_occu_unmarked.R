@@ -881,9 +881,9 @@ mod_occu_unmarked_ui <- function(id) {
                   numericInput(ns("cv_folds"), "Folds (k):",
                                value = 5, min = 2, max = 10),
                   div(class = "pt-4",
-                      actionButton(ns("correr_cv"), "Correr CV",
-                                   class = "btn-primary w-100",
-                                   icon = icon("rotate")))
+                      actionButton(ns("correr_cv"), 
+                                   label = tagList(bs_icon("arrow-repeat", class = "me-1"), "Correr CV"),
+                                   class = "btn-primary w-100"))
                 ),
                 tags$hr(),
                 uiOutput(ns("resultado_cv"))
@@ -902,9 +902,9 @@ mod_occu_unmarked_ui <- function(id) {
           p(class = "small text-muted mb-3",
             "Guarda modelos desde 'Ajustar modelo' y comp\u00e1ralos por AIC."
           ),
-          actionButton(ns("limpiar_modelos"), "Limpiar lista",
-                       class = "btn btn-outline-danger btn-sm mb-2",
-                       icon = icon("trash")),
+          actionButton(ns("limpiar_modelos"), 
+                       label = tagList(bs_icon("trash", class = "me-1"), "Limpiar lista"),
+                       class = "btn btn-outline-danger btn-sm mb-2"),
           uiOutput(ns("ui_sin_modelos")),
           DTOutput(ns("tabla_aic")),
           plotOutput(ns("plot_aic"), height = "320px"),

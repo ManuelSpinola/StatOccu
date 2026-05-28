@@ -17,8 +17,8 @@ mod_acerca_de_ui <- function(id) {
       ),
       p(class = "text-muted mb-4",
         "StatOccu es la app de modelos de ocupaci\u00f3n de sitios de StatSuite, ",
-        "desarrollada en el ICOMVIS de la Universidad Nacional de Costa Rica. ",
-        "Inspirada en la filosof\u00eda de JASP y jamovi: accesible, did\u00e1ctica, ",
+        "desarrollada en el ICOMVIS, Universidad Nacional, Costa Rica. ",
+        "Es una app: interactiva, accesible, did\u00e1ctica, ",
         "y con c\u00f3digo R reproducible para quienes quieran profundizar."
       ),
       

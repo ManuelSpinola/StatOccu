@@ -1554,18 +1554,21 @@ mod_occu_community_server <- function(id) {
       tryCatch({
         preds <- unmarked::predict(fm, type = input$tipo_pred)
         d     <- datos_activos()
+        col_media <- if (input$tipo_pred == "state") "Media_psi" else "Media_p"
         df_list <- lapply(seq_along(preds), function(i) {
-          p <- preds[[i]]
-          data.frame(
-            Especie   = names(d$ylist)[i],
-            Media_psi = round(mean(p$Predicted, na.rm = TRUE), 3),
-            SE        = round(mean(p$SE, na.rm = TRUE), 3),
-            IC_inf    = round(mean(p$lower, na.rm = TRUE), 3),
-            IC_sup    = round(mean(p$upper, na.rm = TRUE), 3)
+          p      <- preds[[i]]
+          df_row <- data.frame(
+            Especie = names(d$ylist)[i],
+            Media   = round(mean(p$Predicted, na.rm = TRUE), 3),
+            SE      = round(mean(p$SE,        na.rm = TRUE), 3),
+            IC_inf  = round(mean(p$lower,     na.rm = TRUE), 3),
+            IC_sup  = round(mean(p$upper,     na.rm = TRUE), 3)
           )
+          names(df_row)[2] <- col_media
+          df_row
         })
         df <- do.call(rbind, df_list)
-        df <- df[order(df$Media_psi, decreasing = TRUE), ]
+        df <- df[order(df[[col_media]], decreasing = TRUE), ]
         DT::datatable(df, rownames = FALSE,
                       options = list(pageLength = 10, scrollX = TRUE),
                       class = "table-sm table-striped")
