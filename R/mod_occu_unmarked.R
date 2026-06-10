@@ -1990,7 +1990,7 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_sel_cov <- renderUI({
       df <- umf(); req(df)
-      site_covs <- siteCovs(df)
+      site_covs <- unmarked::siteCovs(df)
       req(!is.null(site_covs))
       nums <- names(site_covs)[sapply(site_covs, is.numeric)]
       req(length(nums) > 0)
@@ -1999,7 +1999,7 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_cards_resumen <- renderUI({
       df <- umf(); req(df)
-      y_mat <- getY(df)
+      y_mat <- unmarked::getY(df)
       n_sitios    <- nrow(y_mat)
       n_detectados <- sum(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)), na.rm = TRUE)
       naive_ocu   <- round(n_detectados / n_sitios, 3)
@@ -2023,8 +2023,8 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_plot_cov <- renderPlot({
       df <- umf(); req(df, input$expl_cov)
-      y_mat     <- getY(df)
-      site_covs <- siteCovs(df)
+      y_mat     <- unmarked::getY(df)
+      site_covs <- unmarked::siteCovs(df)
       req(!is.null(site_covs), input$expl_cov %in% names(site_covs))
       
       det_naive <- as.integer(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)))
@@ -2053,7 +2053,7 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_plot_corr <- renderPlot({
       df <- umf(); req(df)
-      site_covs <- siteCovs(df)
+      site_covs <- unmarked::siteCovs(df)
       req(!is.null(site_covs))
       nums <- site_covs[, sapply(site_covs, is.numeric), drop = FALSE]
       req(ncol(nums) >= 2)
@@ -2065,9 +2065,17 @@ mod_occu_unmarked_server <- function(id) {
       ggplot2::ggplot(df_cor, ggplot2::aes(x = Var1, y = Var2,
                                            fill = Correlation)) +
         ggplot2::geom_tile(color = "white") +
-        ggplot2::geom_text(ggplot2::aes(
-          label = round(Correlation, 2)),
-          size = 3.5, color = "white") +
+        ggplot2::geom_label(ggplot2::aes(
+          label      = round(Correlation, 2),
+          color      = ifelse(abs(Correlation) > 0.4, "light", "dark"),
+          fill       = Correlation),
+          size       = 3.5,
+          label.size = 0,
+          label.padding = ggplot2::unit(0.15, "lines"),
+          alpha      = 0.55) +
+        ggplot2::scale_color_manual(
+          values = c(light = "white", dark = "grey20"),
+          guide  = "none") +
         ggplot2::scale_fill_gradient2(
           low = colores$peligro, mid = "white",
           high = colores$primario, midpoint = 0,

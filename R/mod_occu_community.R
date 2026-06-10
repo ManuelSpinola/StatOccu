@@ -233,21 +233,112 @@ mod_occu_community_ui <- function(id) {
                   ),
                   conditionalPanel(
                     condition = paste0("input['", ns("fuente_datos"), "'] == 'propio'"),
-                    div(
-                      class = "alert alert-info small py-2 px-3 mb-2",
-                      bs_icon("info-circle", class = "me-1"),
-                      "Sube un archivo RDS con una lista que contenga:",
-                      tags$ul(
-                        class = "mb-0 mt-1",
-                        tags$li(code("ylist"), " — lista de matrices por especie"),
-                        tags$li(code("sitecov"), " — data.frame de covariables de sitio"),
-                        tags$li(code("spcov"), " — lista de rasgos funcionales (opcional)")
-                      )
+                    radioButtons(
+                      ns("formato_propio"),
+                      label = NULL,
+                      choices = c(
+                        "Subir archivos CSV / XLSX" = "csv",
+                        "Subir archivo RDS"         = "rds"
+                      ),
+                      selected = "csv"
                     ),
-                    fileInput(ns("archivo_rds"), label = NULL,
-                              accept = ".rds",
-                              buttonLabel = "Buscar\u2026",
-                              placeholder = "Archivo .rds")
+
+                    # —— Opción CSV / XLSX —————————————
+                    conditionalPanel(
+                      condition = paste0("input['", ns("formato_propio"), "'] == 'csv'"),
+                      div(
+                        class = "alert alert-info small py-2 px-3 mb-2",
+                        bs_icon("info-circle", class = "me-1"),
+                        tags$strong("Sube tus archivos por separado:"),
+                        tags$ul(
+                          class = "mb-0 mt-1",
+                          tags$li(
+                            tags$strong("Detecciones (obligatorio):"),
+                            " dos opciones:",
+                            tags$ul(
+                              class = "mb-0 mt-1",
+                              tags$li(
+                                tags$strong("Varios archivos CSV o XLSX"),
+                                " (selección múltiple): un archivo por especie.",
+                                tags$br(),
+                                "El nombre del archivo = nombre de la especie ",
+                                "(use guion bajo para nombres compuestos, ej. ",
+                                code("Puma_concolor.csv"), ").",
+                                tags$br(),
+                                "Solo columnas de ocasiones, sin columna de sitios.",
+                                tags$br(),
+                                "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
+                              ),
+                              tags$li(
+                                tags$strong("Un archivo Excel con una hoja por especie:"),
+                                tags$br(),
+                                "El nombre de cada hoja = nombre de la especie ",
+                                "(use guion bajo para nombres compuestos, ej. ",
+                                code("Puma_concolor"), ").",
+                                tags$br(),
+                                "Solo columnas de ocasiones, sin columna de sitios.",
+                                tags$br(),
+                                "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
+                              )
+                            )
+                          ),
+                          tags$li(
+                            tags$strong("Covariables de sitio (obligatorio):"),
+                            " una fila por sitio, una columna por covariable."
+                          ),
+                          tags$li(
+                            tags$strong("Rasgos funcionales (opcional):"),
+                            " una fila por especie, una columna por rasgo."
+                          ),
+                          tags$li(
+                            tags$strong("Covariables de observación (opcional):"),
+                            " una columna por ocasión, un archivo por variable."
+                          )
+                        )
+                      ),
+                      fileInput(ns("arch_ylist"), "Detecciones (una o varias especies):",
+                                accept = c(".csv", ".xlsx"), multiple = TRUE,
+                                buttonLabel = "Buscar…",
+                                placeholder = "CSV o XLSX"),
+                      fileInput(ns("arch_sitecov"), "Covariables de sitio:",
+                                accept = c(".csv", ".xlsx"),
+                                buttonLabel = "Buscar…",
+                                placeholder = "CSV o XLSX"),
+                      fileInput(ns("arch_spcov"), "Rasgos funcionales (opcional):",
+                                accept = c(".csv", ".xlsx"),
+                                buttonLabel = "Buscar…",
+                                placeholder = "CSV o XLSX"),
+                      fileInput(ns("arch_obscov"), "Covariables de observación (opcional):",
+                                accept = c(".csv", ".xlsx"), multiple = TRUE,
+                                buttonLabel = "Buscar…",
+                                placeholder = "CSV o XLSX"),
+                      actionButton(ns("cargar_csv"), "Cargar datos",
+                                   class = "btn-primary w-100 mt-1",
+                                   icon  = icon("upload"))
+                    ),
+
+                    # —— Opción RDS ———————————————————
+                    conditionalPanel(
+                      condition = paste0("input['", ns("formato_propio"), "'] == 'rds'"),
+                      div(
+                        class = "alert alert-info small py-2 px-3 mb-2",
+                        bs_icon("info-circle", class = "me-1"),
+                        tags$strong("Formato del archivo RDS:"),
+                        tags$br(),
+                        "Debe ser una lista con los siguientes elementos:",
+                        tags$ul(
+                          class = "mb-0 mt-1",
+                          tags$li(code("ylist"),   " — lista nombrada de matrices sitios × ocasiones (0/1/NA), una por especie"),
+                          tags$li(code("sitecov"), " — data.frame con covariables de sitio (una fila por sitio)"),
+                          tags$li(code("spcov"),   " — lista de vectores de rasgos funcionales, uno por especie (opcional)"),
+                          tags$li(code("obscov"),  " — lista de data.frames de covariables de observación, uno por variable (opcional)")
+                        )
+                      ),
+                      fileInput(ns("archivo_rds"), label = NULL,
+                                accept = ".rds",
+                                buttonLabel = "Buscar…",
+                                placeholder = "Archivo .rds")
+                    )
                   )
                 )
               ),
@@ -623,7 +714,67 @@ mod_occu_community_server <- function(id) {
     modelo_fit    <- reactiveVal(NULL)
     scale_info    <- reactiveVal(list())  # guarda center/scale por covariable
 
-    # Cargar datos propios
+    # Cargar datos propios — CSV / XLSX
+    observeEvent(input$cargar_csv, {
+      req(input$arch_ylist, input$arch_sitecov)
+      tryCatch({
+        leer_tabla <- function(path) {
+          if (grepl("\\.xlsx$", path, ignore.case = TRUE)) {
+            readxl::read_excel(path)
+          } else {
+            utils::read.csv(path, check.names = FALSE)
+          }
+        }
+        # ylist: Excel multi-hoja (una hoja = una especie)
+        #        o varios archivos CSV/XLSX (un archivo = una especie)
+        es_xlsx_multihoja <- function(path) {
+          grepl("\\.xlsx$", path, ignore.case = TRUE) &&
+            length(readxl::excel_sheets(path)) > 1
+        }
+        primer_archivo <- input$arch_ylist$datapath[1]
+        if (nrow(input$arch_ylist) == 1 && es_xlsx_multihoja(primer_archivo)) {
+          hojas <- readxl::excel_sheets(primer_archivo)
+          ylist <- lapply(hojas, function(h) {
+            as.matrix(readxl::read_excel(primer_archivo, sheet = h))
+          })
+          names(ylist) <- hojas
+        } else {
+          ylist <- lapply(seq_len(nrow(input$arch_ylist)), function(i) {
+            as.matrix(leer_tabla(input$arch_ylist$datapath[i]))
+          })
+          names(ylist) <- tools::file_path_sans_ext(input$arch_ylist$name)
+        }
+        sitecov <- as.data.frame(leer_tabla(input$arch_sitecov$datapath))
+        spcov <- NULL
+        if (!is.null(input$arch_spcov)) {
+          sp_df <- as.data.frame(leer_tabla(input$arch_spcov$datapath))
+          spcov <- as.list(sp_df)
+        }
+        obscov <- NULL
+        if (!is.null(input$arch_obscov)) {
+          obscov <- lapply(seq_len(nrow(input$arch_obscov)), function(i) {
+            as.data.frame(leer_tabla(input$arch_obscov$datapath[i]))
+          })
+          names(obscov) <- tools::file_path_sans_ext(input$arch_obscov$name)
+        }
+        d <- list(
+          ylist   = ylist,
+          sitecov = sitecov,
+          spcov   = spcov,
+          obscov  = obscov,
+          nsite   = nrow(sitecov),
+          nocc    = ncol(ylist[[1]]),
+          nsp     = length(ylist)
+        )
+        datos_activos(d)
+        showNotification("Datos cargados correctamente.", type = "message")
+      }, error = function(e) {
+        showNotification(paste("Error al cargar:", conditionMessage(e)),
+                         type = "error", duration = 8)
+      })
+    })
+
+    # Cargar datos propios — RDS
     observeEvent(input$archivo_rds, {
       tryCatch({
         d <- readRDS(input$archivo_rds$datapath)
@@ -650,13 +801,13 @@ mod_occu_community_server <- function(id) {
           tags$li(strong("Especies: "), length(d$ylist)),
           tags$li(strong("Sitios: "), nrow(d$sitecov)),
           tags$li(strong("Ocasiones: "), ncol(d$ylist[[1]])),
-          tags$li(strong("Cov. sitio: "),
+          tags$li(strong("Covariables de sitio: "),
                   paste(names(d$sitecov), collapse = ", ")),
           if (!is.null(d$spcov))
-            tags$li(strong("Rasgos: "),
+            tags$li(strong("Rasgos funcionales: "),
                     paste(names(d$spcov), collapse = ", ")),
           if (!is.null(d$obscov))
-            tags$li(strong("Cov. observaci\u00f3n: "),
+            tags$li(strong("Covariables de observación: "),
                     paste(names(d$obscov), collapse = ", "))
         )
       )
