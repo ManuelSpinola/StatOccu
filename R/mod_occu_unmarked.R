@@ -437,32 +437,31 @@ mod_occu_unmarked_ui <- function(id) {
                   
                   uiOutput(ns("desc_dataset_ui")),
                   
-                  p(class = "small text-muted",
-                    "Selecciona un dataset de ejemplo o carga tu propio archivo CSV/XLSX. ",
-                    "Columnas de detección: ", tags$code("y.1, y.2, … y.J"), "."
-                  ),
+                  tags$p(class = "small fw-semibold text-muted mb-1",
+                         bs_icon("bookmark", class = "me-1"), "Ejemplos"),
                   radioButtons(
                     ns("fuente_datos"),
-                    label = tagList(bs_icon("database", class = "me-1"), "Fuente de datos:"),
+                    label = NULL,
                     choices = c(
-                      "Mamíferos — cámaras trampa (simulado)"  = "camaras",
-                      "Ranas — transectos (simulado)" = "ranas",
-                      "Cargar mis propios datos (CSV / XLSX)"  = "propio"
+                      "Mamíferos — cámaras trampa (simulado)" = "camaras",
+                      "Ranas — transectos (simulado)"         = "ranas"
                     ),
                     selected = "camaras"
                   ),
+
+                  tags$hr(class = "my-2"),
+                  tags$p(class = "small fw-semibold text-muted mb-1",
+                         bs_icon("upload", class = "me-1"), "Subir archivo"),
+                  radioButtons(
+                    ns("fuente_propio"),
+                    label = NULL,
+                    choices = c("Cargar mis propios datos (CSV / XLSX)" = "propio"),
+                    selected = character(0)
+                  ),
                   conditionalPanel(
-                    condition = paste0("input['", ns("fuente_datos"), "'] == 'propio'"),
-                    fileInput(
-                      ns("archivo_usuario"),
-                      label    = tagList(bs_icon("file-earmark-arrow-up", class = "me-1"),
-                                         "Seleccionar archivo:"),
-                      accept   = c(".csv", ".xlsx"),
-                      buttonLabel = "Examinar…",
-                      placeholder = "Sin archivo seleccionado"
-                    ),
+                    condition = paste0("output['", ns("fuente_es_propio"), "']"),
                     div(
-                      class = "alert alert-warning small py-2 px-3 mb-3",
+                      class = "alert alert-warning small py-2 px-3 mb-2",
                       bs_icon("exclamation-triangle", class = "me-1"),
                       tags$strong("Formato requerido:"),
                       tags$ul(
@@ -477,6 +476,13 @@ mod_occu_unmarked_ui <- function(id) {
                                 ". El nombre base (", tags$code("esfuerzo"),
                                 ") se usa en la fórmula de detección.")
                       )
+                    ),
+                    fileInput(
+                      ns("archivo_usuario"),
+                      label    = NULL,
+                      accept   = c(".csv", ".xlsx"),
+                      buttonLabel = "Examinar…",
+                      placeholder = "Sin archivo seleccionado"
                     )
                   ),
                   uiOutput(ns("sel_cov_obs"))
@@ -1123,9 +1129,30 @@ mod_occu_unmarked_server <- function(id) {
     # REACTIVOS: datos activos
     # ────────────────────────────────────────────────────
     
-    datos_crudos <- reactive({
+    output$fuente_es_propio <- reactive({
+      !is.null(input$fuente_propio) && length(input$fuente_propio) > 0 &&
+        input$fuente_propio == "propio"
+    })
+    outputOptions(output, "fuente_es_propio", suspendWhenHidden = FALSE)
+
+    observeEvent(input$fuente_datos, {
       req(input$fuente_datos)
-      switch(input$fuente_datos,
+      updateRadioButtons(session, "fuente_propio", selected = character(0))
+    })
+    observeEvent(input$fuente_propio, {
+      req(input$fuente_propio)
+      updateRadioButtons(session, "fuente_datos", selected = character(0))
+    })
+
+    fuente_occu_activa <- reactive({
+      if (!is.null(input$fuente_propio) && length(input$fuente_propio) > 0 &&
+          input$fuente_propio == "propio") "propio"
+      else input$fuente_datos %||% "camaras"
+    })
+
+    datos_crudos <- reactive({
+      req(fuente_occu_activa())
+      switch(fuente_occu_activa(),
              camaras = generar_datos_camaras(),
              ranas   = generar_datos_ranas(),
              propio  = {
@@ -1380,8 +1407,8 @@ mod_occu_unmarked_server <- function(id) {
     
     # Descripción del dataset activo — aparece en sub-pestaña "Cargar datos"
     output$desc_dataset_ui <- renderUI({
-      req(input$fuente_datos)
-      desc <- switch(input$fuente_datos,
+      req(fuente_occu_activa())
+      desc <- switch(fuente_occu_activa(),
                      camaras = tagList(
                        tags$strong("Mamíferos — cámaras trampa (simulado)."),
                        " Detecciones/no detecciones de una especie focal en ",
@@ -2397,7 +2424,7 @@ mod_occu_unmarked_server <- function(id) {
         "1" else paste(input$cov_det, collapse = " + ")
       ocu_covs <- if (is.null(input$cov_ocu) || length(input$cov_ocu) == 0)
         "1" else paste(input$cov_ocu, collapse = " + ")
-      fuente <- input$fuente_datos
+      fuente <- fuente_occu_activa()
       
       encabezado_script("StatMonitor", "Modelos de ocupación") |>
         paste0(
