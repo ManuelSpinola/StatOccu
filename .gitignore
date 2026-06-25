@@ -5,3 +5,4 @@
 .positai
 renv/library/
 rsconnect/
+.DS_Store
