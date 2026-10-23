@@ -589,6 +589,7 @@ mod_occu_unmarked_ui <- function(id) {
           ),
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
             card(
               style = paste0("border-left: 4px solid ", colores$primario, ";"),
               card_header(
@@ -665,16 +666,13 @@ mod_occu_unmarked_ui <- function(id) {
         title = tagList(bs_icon("list-ol", class = "me-1"), "Parámetros"),
         div(
           class = "p-3",
+          uiOutput(ns("modelo_activo_param")),
           layout_columns(
             col_widths = c(6, 6),
             uiOutput(ns("vbox_psi")),
             uiOutput(ns("vbox_p"))
           ),
-          div(class = "mt-3",
-              checkboxInput(ns("mostrar_prob"),
-                            "Mostrar interceptos en escala probabilidad", value = FALSE)
-          ),
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
+          h5(style = paste0("color:", colores$primario, "; font-weight:700; margin-top:1rem;"),
              "Tabla de coeficientes"),
           DTOutput(ns("tabla_coef")),
           h5(style = paste0("color:", colores$primario, "; font-weight:700; margin-top:1rem;"),
@@ -725,6 +723,8 @@ mod_occu_unmarked_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"), "Gráficos"),
         card_body(
+          fillable = FALSE,
+          uiOutput(ns("modelo_activo_graf")),
           p(class = "small text-muted mb-3",
             "Curva de respuesta de ψ o p sobre el rango de la covariable seleccionada, ",
             "manteniendo las demás en su valor promedio."
@@ -752,6 +752,7 @@ mod_occu_unmarked_ui <- function(id) {
         title = tagList(bs_icon("pin-map", class = "me-1"), "\u03c8 por sitio"),
         div(
           class = "p-3",
+          uiOutput(ns("modelo_activo_sitio")),
           navset_tab(
             # ── Sub-tab 1: ψ por covariables ──────────────
             nav_panel(
@@ -791,6 +792,7 @@ mod_occu_unmarked_ui <- function(id) {
                 "pronunciada en sitios con historial ", code("0000"),
                 " (muchas visitas sin detecci\u00f3n) cuando la detectabilidad p es alta."
               ),
+              div(class = "mb-3", uiOutput(ns("vbox_ocu_muestra"))),
               layout_columns(
                 col_widths = c(6, 6),
                 fill = FALSE,
@@ -839,6 +841,7 @@ mod_occu_unmarked_ui <- function(id) {
         title = tagList(bs_icon("speedometer2", class = "me-1"), "Performance"),
         div(
           class = "p-3",
+          uiOutput(ns("modelo_activo_perf")),
           p(class = "small text-muted mb-3",
             "Evaluaci\u00f3n del poder predictivo del modelo mediante ",
             strong("validaci\u00f3n cruzada"), " (", code("crossVal()"), " de unmarked) y ",
@@ -905,6 +908,7 @@ mod_occu_unmarked_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("bar-chart-steps", class = "me-1"), "Comparar modelos"),
         card_body(
+          fillable = FALSE,
           p(class = "small text-muted mb-3",
             "Guarda modelos desde 'Ajustar modelo' y comp\u00e1ralos por AIC."
           ),
@@ -940,6 +944,8 @@ mod_occu_unmarked_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("clipboard2-pulse", class = "me-1"), "Diagnóstico"),
         card_body(
+          fillable = FALSE,
+          uiOutput(ns("modelo_activo_diag")),
           
           # ── Fila 1: explicación + controles + resultado ──
           layout_columns(
@@ -1014,6 +1020,7 @@ mod_occu_unmarked_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("code-slash", class = "me-1"), "Código R"),
         card_body(
+          uiOutput(ns("modelo_activo_cod")),
           div(
             class = "d-flex align-items-center gap-2 mb-3",
             downloadButton(
@@ -1359,13 +1366,32 @@ mod_occu_unmarked_server <- function(id) {
         bs_icon("check-circle-fill", class = "me-1"),
         strong("Modelo ajustado: "), nombre_modelo_actual(),
         " — log-verosimilitud: ",
-        round(as.numeric(logLik(fm)), 2)
+        round(as.numeric(unmarked::logLik(fm)), 2)
       )
     })
     
     # ────────────────────────────────────────────────────
     # VALOR BOXES: datos
     # ────────────────────────────────────────────────────
+    
+    # ── Recuadro "Modelo activo" (se repite en varias pestañas) ──
+    # Un output de Shiny no puede mostrarse en dos lugares, así que se
+    # registra uno por pestaña con la misma función.
+    ui_modelo_activo <- function() {
+      renderUI({
+        req(modelo_actual())
+        div(
+          class = "alert alert-light small py-2 px-3 mb-3",
+          bs_icon("bookmark", class = "me-1"),
+          strong("Modelo activo: "), nombre_modelo_actual()
+        )
+      })
+    }
+    for (id_out in c("modelo_activo_param", "modelo_activo_graf",
+                     "modelo_activo_sitio", "modelo_activo_diag",
+                     "modelo_activo_perf",  "modelo_activo_cod")) {
+      output[[id_out]] <- ui_modelo_activo()
+    }
     
     output$vbox_sitios <- renderUI({
       req(umf())
@@ -1485,28 +1511,52 @@ mod_occu_unmarked_server <- function(id) {
     # PARÁMETROS
     # ────────────────────────────────────────────────────
     
+    # ψ y p con las covariables en su media (IC 95 % de unmarked::predict,
+    # método delta). Numéricas: media; factores o texto: primer nivel.
+    # Las covariables de observación se promedian sobre sitios y ocasiones.
+    valor_medio <- function(x) {
+      if (is.numeric(x)) return(mean(x, na.rm = TRUE))
+      f <- as.factor(x)
+      factor(levels(f)[1], levels = levels(f))
+    }
+    nd_medias <- function(df) {
+      if (is.null(df) || ncol(df) == 0) return(data.frame(.sin_cov = 1))
+      as.data.frame(lapply(df, valor_medio))
+    }
+    pred_en_media <- function(fm, tipo) {
+      nd <- nd_medias(unmarked::siteCovs(fm@data))
+      if (tipo == "det") {
+        oc <- unmarked::obsCovs(fm@data)
+        if (!is.null(oc) && ncol(oc) > 0) nd <- cbind(nd, nd_medias(oc))
+      }
+      unmarked::predict(fm, type = tipo, newdata = nd, appendData = FALSE)
+    }
+    
     output$vbox_psi <- renderUI({
       req(modelo_actual())
-      # plogis del intercepto de ocupación = ψ estimada con covariables en 0
-      psi_val <- round(plogis(coef(modelo_actual(), type = "state")[1]), 3)
+      pr <- pred_en_media(modelo_actual(), "state")
       div(class="card h-100",
           style=paste0("background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem; text-align:center;"),
           div(style=paste0("font-size:13px; color:", colores$texto, "; margin-bottom:4px;"),
-              bs_icon("geo-alt-fill", class="me-1"), "ψ estimada (intercepción)"),
+              bs_icon("geo-alt-fill", class="me-1"), "ψ estimada (covariables en su media)"),
           div(style=paste0("font-size:24px; font-weight:500; color:", colores$primario, ";"),
-              psi_val)
+              round(pr$Predicted, 3)),
+          div(class = "small text-muted",
+              sprintf("IC 95 %%: %.3f – %.3f", pr$lower, pr$upper))
       )
     })
     
     output$vbox_p <- renderUI({
       req(modelo_actual())
-      p_val <- round(plogis(coef(modelo_actual(), type = "det")[1]), 3)
+      pr <- pred_en_media(modelo_actual(), "det")
       div(class="card h-100",
           style=paste0("background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem; text-align:center;"),
           div(style=paste0("font-size:13px; color:", colores$texto, "; margin-bottom:4px;"),
-              bs_icon("binoculars-fill", class="me-1"), "p estimada (intercepción)"),
+              bs_icon("binoculars-fill", class="me-1"), "p estimada (covariables en su media)"),
           div(style=paste0("font-size:24px; font-weight:500; color:", colores$acento, ";"),
-              p_val)
+              round(pr$Predicted, 3)),
+          div(class = "small text-muted",
+              sprintf("IC 95 %%: %.3f – %.3f", pr$lower, pr$upper))
       )
     })
     
@@ -1516,7 +1566,7 @@ mod_occu_unmarked_server <- function(id) {
       
       # Extraer coeficientes usando coef() y SE() — compatible con unmarked 1.5.x
       hacer_df_sub <- function(tipo, label) {
-        est <- coef(fm, type = tipo)
+        est <- unmarked::coef(fm, type = tipo)
         se  <- unmarked::SE(fm, type = tipo)
         z   <- est / se
         pv  <- 2 * pnorm(-abs(z))
@@ -1537,12 +1587,6 @@ mod_occu_unmarked_server <- function(id) {
         hacer_df_sub("det",   "Detección (p)")
       )
       
-      if (input$mostrar_prob) {
-        int_rows <- grepl("^\\(Int", df$Parámetro)
-        df$Estimado[int_rows] <- plogis(df$Estimado[int_rows])
-        df$Parámetro[int_rows] <- paste0(df$Parámetro[int_rows], " [prob]")
-      }
-      
       datatable(
         df,
         options  = list(dom = "t", pageLength = 20,
@@ -1553,8 +1597,9 @@ mod_occu_unmarked_server <- function(id) {
         DT::formatRound(c("Estimado", "EE", "z", "p-valor"), 4) |>
         DT::formatStyle(
           "p-valor",
+          # p < 0.05: naranja rojizo · 0.05–0.10: morado · resto: texto normal
           color = DT::styleInterval(c(0.05, 0.1),
-                                    c("#C85200", "#B85A0D", colores$texto))
+                                    c("#C85200", "#7B4F9D", colores$texto))
         )
     })
     
@@ -1563,7 +1608,7 @@ mod_occu_unmarked_server <- function(id) {
       fm <- modelo_actual()
       
       hacer_df_coef <- function(tipo, label) {
-        est <- coef(fm, type = tipo)
+        est <- unmarked::coef(fm, type = tipo)
         se  <- unmarked::SE(fm, type = tipo)
         data.frame(
           Estimate = est,
@@ -1784,15 +1829,17 @@ mod_occu_unmarked_server <- function(id) {
     
     tabla_aic_df <- reactive({
       req(length(modelos_guardados()) >= 1)
-      fl  <- do.call(unmarked::fitList, modelos_guardados())
-      sel <- unmarked::modSel(fl)
+      # modelos_guardados() guarda list(fit, formula, cov_ocu, cov_det) por
+      # modelo: extraer solo los objetos unmarkedFit
+      mods <- lapply(modelos_guardados(), `[[`, "fit")
+      # fitList() verifica que todos los modelos usen los mismos datos
+      unmarked::fitList(fits = mods)
       
       # Extraer AIC, nPars y logLik directamente de cada modelo
       nms  <- names(modelos_guardados())
-      mods <- modelos_guardados()
       df   <- data.frame(
         Modelo        = nms,
-        `Núm. params.` = sapply(nms, function(n) length(coef(mods[[n]]))),
+        `Núm. params.` = sapply(nms, function(n) length(unmarked::coef(mods[[n]]))),
         AIC           = sapply(nms, function(n) mods[[n]]@AIC),
         `log-lik`     = sapply(nms, function(n) -mods[[n]]@negLogLike),
         check.names   = FALSE,
@@ -2119,8 +2166,11 @@ mod_occu_unmarked_server <- function(id) {
     
     output$tabla_vif <- renderUI({
       fm <- modelo_actual(); req(fm)
-      tryCatch({
-        vif_res <- unmarked::vif(fm, type = "state")
+      # Una tabla por submodelo; solo si ese submodelo tiene ≥2 covariables
+      tabla_vif_tipo <- function(tipo, titulo) {
+        vif_res <- tryCatch(unmarked::vif(fm, type = tipo),
+                            error = function(e) NULL)
+        if (is.null(vif_res) || length(vif_res) < 2) return(NULL)
         df_vif  <- data.frame(
           Covariable = names(vif_res),
           VIF        = round(vif_res, 3)
@@ -2138,17 +2188,26 @@ mod_occu_unmarked_server <- function(id) {
                     df_vif$Estado[i])
           )
         })
-        tags$table(
-          class = "table table-sm small mb-0",
-          tags$thead(tags$tr(
-            tags$th("Covariable"), tags$th("VIF"), tags$th("Estado")
-          )),
-          tags$tbody(filas)
+        tagList(
+          tags$p(class = "small fw-semibold mb-1 mt-2", titulo),
+          tags$table(
+            class = "table table-sm small mb-2",
+            tags$thead(tags$tr(
+              tags$th("Covariable"), tags$th("VIF"), tags$th("Estado")
+            )),
+            tags$tbody(filas)
+          )
         )
-      }, error = function(e) {
+      }
+      partes <- Filter(Negate(is.null), list(
+        tabla_vif_tipo("state", "Ocupación (ψ)"),
+        tabla_vif_tipo("det",   "Detección (p)")
+      ))
+      if (length(partes) == 0) return(
         p(class = "small text-muted",
-          "VIF disponible solo con \u22652 covariables en el submodelo de ocupaci\u00f3n.")
-      })
+          "VIF disponible solo con \u22652 covariables en un submodelo.")
+      )
+      tagList(partes)
     })
     
     output$plot_importancia <- renderPlot({
@@ -2180,7 +2239,8 @@ mod_occu_unmarked_server <- function(id) {
         )
         
         # Quitar interceptos
-        coef_df <- coef_df[!grepl("\\(Intercept\\)", coef_df$param), ]
+        # unmarked nombra los interceptos "psi(Int)" y "p(Int)"
+        coef_df <- coef_df[!grepl("\\(Int", coef_df$param), ]
         if (nrow(coef_df) == 0) return(
           ggplot2::ggplot() +
             ggplot2::annotate("text", x = 0.5, y = 0.5,
@@ -2203,7 +2263,7 @@ mod_occu_unmarked_server <- function(id) {
           ggplot2::geom_text(
             ggplot2::aes(label = sprintf("%+.3f", Estimate)),
             hjust = -0.15, size = 3.5, color = colores$texto) +
-          ggplot2::facet_grid(submodelo ~ ., scales = "free_y", space = "free_y") +
+          ggplot2::facet_wrap(~ submodelo, ncol = 1, scales = "free_y") +
           ggplot2::scale_fill_manual(
             values = c("Positivo" = colores$primario,
                        "Negativo" = colores$peligro),
@@ -2222,7 +2282,7 @@ mod_occu_unmarked_server <- function(id) {
             panel.grid.major.y = ggplot2::element_blank(),
             legend.position    = "bottom",
             strip.text         = ggplot2::element_text(
-              color = colores$primario, face = "bold"),
+              color = colores$primario, face = "bold", hjust = 0),
             plot.subtitle      = ggplot2::element_text(
               color = colores$texto, size = 9))
       }, error = function(e) {
@@ -2257,6 +2317,35 @@ mod_occu_unmarked_server <- function(id) {
       }, error = function(e) NULL)
     })
     
+    # Proporción de sitios ocupados en la muestra: media de bup(ranef()).
+    # IC 95 % a partir de simulaciones de la distribución posterior de z.
+    output$vbox_ocu_muestra <- renderUI({
+      fm <- modelo_actual(); req(fm)
+      res <- tryCatch({
+        re   <- unmarked::ranef(fm)
+        est  <- mean(unmarked::bup(re, stat = "mean"), na.rm = TRUE)
+        sims <- as.numeric(unmarked::predict(
+          re, func = function(z) mean(z, na.rm = TRUE), nsims = 1000))
+        list(est = est,
+             ic  = stats::quantile(sims, c(0.025, 0.975), na.rm = TRUE))
+      }, error = function(e) NULL)
+      req(res)
+      y_mat <- unmarked::getY(fm@data)
+      naive <- mean(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)))
+      div(class="card",
+          style=paste0("background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem; text-align:center;"),
+          div(style=paste0("font-size:13px; color:", colores$texto, "; margin-bottom:4px;"),
+              bs_icon("pin-map-fill", class="me-1"),
+              "Proporci\u00f3n de sitios ocupados (muestra)"),
+          div(style=paste0("font-size:24px; font-weight:500; color:", colores$primario, ";"),
+              round(res$est, 3)),
+          div(class = "small text-muted",
+              sprintf("IC 95 %%: %.3f \u2013 %.3f", res$ic[1], res$ic[2])),
+          div(class = "small text-muted mt-1",
+              sprintf("Ocupaci\u00f3n na\u00efve: %.3f", naive))
+      )
+    })
+    
     output$plot_ranef_scatter <- renderPlot({
       df <- ranef_data(); req(df)
       ggplot2::ggplot(df, ggplot2::aes(x = psi_cov, y = psi_post,
@@ -2271,7 +2360,7 @@ mod_occu_unmarked_server <- function(id) {
           x = "\u03c8 por covariables (predict)",
           y = "\u03c8 posterior (bup \u00b7 ranef)",
           subtitle = paste0(
-            "Puntos bajo la diagonal = detecciones reducen la estimaci\u00f3n. ",
+            "Puntos bajo la diagonal = visitas sin detecci\u00f3n reducen la estimaci\u00f3n.\n",
             "Puntos con historial 0000 tienden a estar m\u00e1s abajo.")) +
         ggplot2::theme_minimal(base_size = 12) +
         ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
@@ -2295,11 +2384,12 @@ mod_occu_unmarked_server <- function(id) {
           guide = "none") +
         ggplot2::labs(
           x = "\u03c8post \u2212 \u03c8cov",
-          y = NULL,
-          subtitle = "Rojo = detecciones reducen la estimaci\u00f3n (menos ocupaci\u00f3n de la esperada)") +
+          y = "Sitios (detalle en la tabla comparativa)",
+          subtitle = "Rojo = visitas sin detecci\u00f3n reducen la estimaci\u00f3n (menos ocupaci\u00f3n de la esperada)") +
         ggplot2::theme_minimal(base_size = 11) +
         ggplot2::theme(
-          axis.text.y      = ggplot2::element_text(size = 7),
+          # Con muchos sitios los nombres se amontonan: se omiten aquí
+          axis.text.y      = ggplot2::element_blank(),
           panel.grid.minor = ggplot2::element_blank(),
           panel.grid.major.y = ggplot2::element_blank(),
           plot.subtitle    = ggplot2::element_text(
@@ -2318,8 +2408,8 @@ mod_occu_unmarked_server <- function(id) {
         rownames = FALSE,
         class    = "table-sm table-striped"
       ) |>
-        formatStyle("diff",
-                    color = styleInterval(0, c(colores$peligro, colores$primario)),
+        DT::formatStyle("diff",
+                    color = DT::styleInterval(0, c(colores$peligro, colores$primario)),
                     fontWeight = "bold")
     })
     
@@ -2390,8 +2480,17 @@ mod_occu_unmarked_server <- function(id) {
             "Haz clic en ", strong("Correr CV"), " para evaluar.")
       )
       tryCatch({
-        s   <- summary(res)
-        df  <- as.data.frame(s)
+        # unmarked no define summary() para unmarkedCrossVal (cae en
+        # summary.default). Se resumen las estadísticas por fold del slot
+        # @stats con media y DE, igual que el método show() de unmarked.
+        st  <- as.data.frame(res@stats)
+        df  <- data.frame(
+          `Estadístico` = names(st),
+          Estimado      = sapply(st, mean, na.rm = TRUE),
+          DE            = sapply(st, stats::sd, na.rm = TRUE),
+          check.names   = FALSE,
+          row.names     = NULL
+        )
         tagList(
           tags$table(
             class = "table table-sm small mb-2",
