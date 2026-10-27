@@ -432,60 +432,52 @@ mod_occu_unmarked_ui <- function(id) {
         card_body(
           navset_tab(
             nav_panel(
-              title = tagList(bs_icon("upload", class = "me-1"), "Cargar datos"),
+              title = tagList(bs_icon("collection", class = "me-1"), "Datos de ejemplo"),
               div(class = "mt-3",
-                  
-                  uiOutput(ns("desc_dataset_ui")),
-                  
-                  tags$p(class = "small fw-semibold text-muted mb-1",
-                         bs_icon("bookmark", class = "me-1"), "Ejemplos"),
                   radioButtons(
                     ns("fuente_datos"),
-                    label = NULL,
+                    label = tagList(bs_icon("database", class = "me-1"),
+                                    "Seleccionar dataset:"),
                     choices = c(
                       "Mamíferos — cámaras trampa (simulado)" = "camaras",
                       "Ranas — transectos (simulado)"         = "ranas"
                     ),
                     selected = "camaras"
                   ),
-
-                  tags$hr(class = "my-2"),
-                  tags$p(class = "small fw-semibold text-muted mb-1",
-                         bs_icon("upload", class = "me-1"), "Subir archivo"),
-                  radioButtons(
-                    ns("fuente_propio"),
-                    label = NULL,
-                    choices = c("Cargar mis propios datos (CSV / XLSX)" = "propio"),
-                    selected = character(0)
-                  ),
-                  conditionalPanel(
-                    condition = paste0("output['", ns("fuente_es_propio"), "']"),
-                    div(
-                      class = "alert alert-warning small py-2 px-3 mb-2",
-                      bs_icon("exclamation-triangle", class = "me-1"),
-                      tags$strong("Formato requerido:"),
-                      tags$ul(
-                        class = "mb-0 mt-1",
-                        tags$li("Filas = sitios; columnas de detección: ",
-                                tags$code("y.1, y.2, … y.J"), " (valores 0/1/NA)"),
-                        tags$li("Covariables de sitio: columnas adicionales con nombre libre ",
-                                "(ej. ", tags$code("bosque"), ", ", tags$code("elev"), ")"),
-                        tags$li("Covariables de observación: una columna por ocasión, ",
-                                "prefijo libre más sufijo numérico — ej. ",
-                                tags$code("esfuerzo.1, esfuerzo.2, … esfuerzo.J"),
-                                ". El nombre base (", tags$code("esfuerzo"),
-                                ") se usa en la fórmula de detección.")
-                      )
-                    ),
-                    fileInput(
-                      ns("archivo_usuario"),
-                      label    = NULL,
-                      accept   = c(".csv", ".xlsx"),
-                      buttonLabel = "Examinar…",
-                      placeholder = "Sin archivo seleccionado"
+                  uiOutput(ns("desc_dataset_ui"))
+              )
+            ),
+            nav_panel(
+              title = tagList(bs_icon("folder", class = "me-1"), "Mis datos"),
+              div(class = "mt-3",
+                  div(
+                    class = "alert alert-warning small py-2 px-3 mb-2",
+                    bs_icon("exclamation-triangle", class = "me-1"),
+                    tags$strong("Formato requerido:"),
+                    tags$ul(
+                      class = "mb-0 mt-1",
+                      tags$li("Filas = sitios; columnas de detección: ",
+                              tags$code("y.1, y.2, … y.J"), " (valores 0/1/NA)"),
+                      tags$li("Covariables de sitio: columnas adicionales con nombre libre ",
+                              "(ej. ", tags$code("bosque"), ", ", tags$code("elev"), ")"),
+                      tags$li("Covariables de observación: una columna por ocasión, ",
+                              "prefijo libre más sufijo numérico — ej. ",
+                              tags$code("esfuerzo.1, esfuerzo.2, … esfuerzo.J"),
+                              ". El nombre base (", tags$code("esfuerzo"),
+                              ") se usa en la fórmula de detección."),
+                      tags$li("Covariables categóricas (ej. observador): usa texto ",
+                              "(", tags$code("A, B, C"), "), no números; con números ",
+                              "se tratan como una variable continua.")
                     )
                   ),
-                  uiOutput(ns("sel_cov_obs"))
+                  fileInput(
+                    ns("archivo_usuario"),
+                    label    = NULL,
+                    accept   = c(".csv", ".xlsx"),
+                    buttonLabel = "Examinar…",
+                    placeholder = "Sin archivo seleccionado"
+                  ),
+                  uiOutput(ns("estado_mis_datos"))
               )
             ),
             nav_panel(
@@ -1136,25 +1128,28 @@ mod_occu_unmarked_server <- function(id) {
     # REACTIVOS: datos activos
     # ────────────────────────────────────────────────────
     
-    output$fuente_es_propio <- reactive({
-      !is.null(input$fuente_propio) && length(input$fuente_propio) > 0 &&
-        input$fuente_propio == "propio"
-    })
-    outputOptions(output, "fuente_es_propio", suspendWhenHidden = FALSE)
+    # Fuente activa: la última acción del usuario (elegir un ejemplo o
+    # subir un archivo). Al subir un archivo se desmarca el ejemplo, para
+    # que volver a elegirlo dispare el cambio.
+    fuente_occu_activa <- reactiveVal("camaras")
 
     observeEvent(input$fuente_datos, {
       req(input$fuente_datos)
-      updateRadioButtons(session, "fuente_propio", selected = character(0))
+      fuente_occu_activa(input$fuente_datos)
     })
-    observeEvent(input$fuente_propio, {
-      req(input$fuente_propio)
+    observeEvent(input$archivo_usuario, {
+      req(input$archivo_usuario)
+      fuente_occu_activa("propio")
       updateRadioButtons(session, "fuente_datos", selected = character(0))
     })
 
-    fuente_occu_activa <- reactive({
-      if (!is.null(input$fuente_propio) && length(input$fuente_propio) > 0 &&
-          input$fuente_propio == "propio") "propio"
-      else input$fuente_datos %||% "camaras"
+    output$estado_mis_datos <- renderUI({
+      if (fuente_occu_activa() != "propio" || is.null(input$archivo_usuario))
+        return(NULL)
+      div(class = "alert alert-success small py-2 px-3 mt-2 mb-0",
+          bs_icon("check-circle-fill", class = "me-1"),
+          "Usando ", strong(input$archivo_usuario$name),
+          ". Revisa la pesta\u00f1a Vista previa.")
     })
 
     datos_crudos <- reactive({
@@ -1177,13 +1172,32 @@ mod_occu_unmarked_server <- function(id) {
                       "El archivo debe tener al menos 2 columnas nombradas y.1, y.2, ...")
                )
                cov_cols <- setdiff(names(df), cols_y)
+               J <- length(cols_y)
+
+               # Covariables de observación: grupos de J columnas
+               # nombre.1 … nombre.J (también nombre_1 o nombre1).
+               # Solo cuenta como grupo si están las J ocasiones.
+               base <- sub("[._]?[0-9]+$", "", cov_cols)
+               num  <- suppressWarnings(
+                 as.integer(sub("^.*?([0-9]+)$", "\\1", cov_cols)))
+               cov_obs <- list()
+               for (b in unique(base[grepl("[0-9]$", cov_cols)])) {
+                 idx <- which(base == b & !is.na(num))
+                 if (length(idx) == J && setequal(num[idx], seq_len(J))) {
+                   cols_b <- cov_cols[idx][order(num[idx])]
+                   cov_obs[[b]] <- as.data.frame(df[, cols_b])
+                 }
+               }
+               cols_obs  <- unlist(lapply(cov_obs, names), use.names = FALSE)
+               cols_site <- setdiff(cov_cols, cols_obs)
+
                list(
                  y         = as.data.frame(df[, cols_y]),
-                 cov_sitio = if (length(cov_cols) > 0)
-                   as.data.frame(df[, cov_cols]) else NULL,
-                 cov_obs   = NULL,
+                 cov_sitio = if (length(cols_site) > 0)
+                   as.data.frame(df[, cols_site]) else NULL,
+                 cov_obs   = if (length(cov_obs) > 0) cov_obs else NULL,
                  n_sitios  = nrow(df),
-                 n_ocas    = length(cols_y)
+                 n_ocas    = J
                )
              }
       )
@@ -1193,10 +1207,26 @@ mod_occu_unmarked_server <- function(id) {
     umf <- reactive({
       req(datos_crudos())
       d <- datos_crudos()
+
+      # Columnas de texto → factor (covariables categóricas)
+      a_factor <- function(df) {
+        df <- as.data.frame(df)
+        chr <- vapply(df, is.character, logical(1))
+        df[chr] <- lapply(df[chr], factor)
+        df
+      }
+
+      # obsCovs en formato largo (sitio por sitio, ocasión por ocasión),
+      # para que las categóricas lleguen a unmarked como factor
+      obs_largo <- if (!is.null(d$cov_obs)) {
+        a_factor(lapply(d$cov_obs, function(x)
+          as.vector(t(as.matrix(as.data.frame(x))))))
+      } else NULL
+
       unmarked::unmarkedFrameOccu(
         y        = d$y,
-        siteCovs = d$cov_sitio,
-        obsCovs  = d$cov_obs   # lista: list(esfuerzo = df, ...) o NULL
+        siteCovs = if (!is.null(d$cov_sitio)) a_factor(d$cov_sitio) else NULL,
+        obsCovs  = obs_largo
       )
     })
     
@@ -1482,14 +1512,29 @@ mod_occu_unmarked_server <- function(id) {
     output$tabla_preview <- renderDT({
       req(datos_crudos())
       d  <- datos_crudos()
-      df <- cbind(d$cov_sitio, d$y)
-      datatable(
+      # Covariables de observación con nombre base + ocasión
+      # (los datos simulados vienen de una matriz sin nombres: V1, V2…)
+      obs <- lapply(names(d$cov_obs), function(nm) {
+        x <- as.data.frame(d$cov_obs[[nm]])
+        names(x) <- paste0(nm, ".", seq_len(ncol(x)))
+        x
+      })
+      # cbind(NULL, df) falla: unir solo las partes que existen
+      partes <- c(list(d$cov_sitio, d$y), obs)
+      df <- do.call(cbind, Filter(Negate(is.null), partes))
+
+      # Redondear en pantalla las columnas con decimales
+      cols_dec <- names(df)[vapply(df, function(x)
+        is.double(x) && any(x != round(x), na.rm = TRUE), logical(1))]
+      dt <- datatable(
         df,
         options  = list(pageLength = 10, scrollX = TRUE,
                         dom = "tp", language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json")),
         rownames = FALSE,
         class    = "table-sm table-striped"
       )
+      if (length(cols_dec) > 0) dt <- DT::formatRound(dt, cols_dec, digits = 2)
+      dt
     })
     
     output$tabla_historial <- renderDT({
@@ -1666,13 +1711,49 @@ mod_occu_unmarked_server <- function(id) {
       } else {
         # cov_obs es lista nombrada: list(esfuerzo = df_50x5, ...)
         # Para predict(), necesitamos una columna por covariable (promedio entre ocasiones)
+        # (las categóricas no se promedian: se valida más abajo)
         cov_data <- as.data.frame(
-          lapply(d$cov_obs, function(df) rowMeans(as.data.frame(df), na.rm = TRUE))
+          lapply(d$cov_obs, function(df) {
+            df <- as.data.frame(df)
+            if (all(vapply(df, is.numeric, logical(1))))
+              rowMeans(df, na.rm = TRUE) else df[[1]]
+          })
         )
       }
       
       validate(need(cov %in% names(cov_data),
                     paste("Covariable", cov, "no encontrada en los datos.")))
+      etiqueta_y <- if (tipo == "state") "ψ (probabilidad de ocupación)"
+      else                  "p (probabilidad de detección)"
+      color_use  <- if (tipo == "state") colores$primario else colores$acento
+
+      # Covariable categórica: ψ o p por nivel, con el resto de
+      # covariables en su media (numéricas) o primer nivel (factores)
+      covs_fm <- if (tipo == "state") unmarked::siteCovs(fm@data)
+                 else unmarked::obsCovs(fm@data)
+      if (!is.null(covs_fm) && is.factor(covs_fm[[cov]])) {
+        niveles <- levels(covs_fm[[cov]])
+        nd <- nd_medias(unmarked::siteCovs(fm@data))
+        if (tipo == "det") nd <- cbind(nd, nd_medias(covs_fm))
+        nd <- nd[rep(1, length(niveles)), , drop = FALSE]
+        nd[[cov]] <- factor(niveles, levels = niveles)
+        preds <- unmarked::predict(fm, type = tipo, newdata = nd,
+                                   appendData = FALSE, level = nivel_ic)
+        df_cat <- data.frame(x = factor(niveles, levels = niveles),
+                             pred = preds$Predicted,
+                             lower = preds$lower, upper = preds$upper)
+        return(
+          ggplot2::ggplot(df_cat,
+                          ggplot2::aes(x = x, y = pred, ymin = lower, ymax = upper)) +
+            ggplot2::geom_errorbar(width = 0.15, color = color_use, linewidth = 0.9) +
+            ggplot2::geom_point(size = 3.5, color = color_use) +
+            ggplot2::ylim(0, 1) +
+            ggplot2::labs(x = cov, y = etiqueta_y,
+                          subtitle = paste0("IC ", input$efecto_ic, " %")) +
+            ggplot2::theme_minimal(base_size = 14) +
+            ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+        )
+      }
       
       rango <- seq(min(cov_data[[cov]], na.rm = TRUE),
                    max(cov_data[[cov]], na.rm = TRUE),
@@ -1684,7 +1765,7 @@ mod_occu_unmarked_server <- function(id) {
       nd <- as.data.frame(medias)
       
       preds <- unmarked::predict(fm, type = tipo, newdata = nd,
-                                 appendData = FALSE)
+                                 appendData = FALSE, level = nivel_ic)
       
       df_plot <- data.frame(
         x      = rango,
@@ -1692,10 +1773,6 @@ mod_occu_unmarked_server <- function(id) {
         lower  = preds$lower,
         upper  = preds$upper
       )
-      
-      etiqueta_y <- if (tipo == "state") "ψ (probabilidad de ocupación)"
-      else                  "p (probabilidad de detección)"
-      color_use  <- if (tipo == "state") colores$primario else colores$acento
       
       ggplot2::ggplot(df_plot,
                       ggplot2::aes(x = x, y = pred, ymin = lower, ymax = upper)) +
@@ -2064,11 +2141,14 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_sel_cov <- renderUI({
       df <- umf(); req(df)
-      site_covs <- unmarked::siteCovs(df)
-      req(!is.null(site_covs))
-      nums <- names(site_covs)[sapply(site_covs, is.numeric)]
-      req(length(nums) > 0)
-      selectInput(ns("expl_cov"), "Covariable:", choices = nums, selected = nums[1])
+      # Covariables según el submodelo: de sitio para ψ, de ocasión para p
+      covs <- if ((input$expl_submodelo %||% "state") == "state")
+        unmarked::siteCovs(df) else unmarked::obsCovs(df)
+      if (is.null(covs) || ncol(covs) == 0)
+        return(p(class = "small text-muted",
+                 "No hay covariables para este submodelo."))
+      selectInput(ns("expl_cov"), "Covariable:",
+                  choices = names(covs), selected = names(covs)[1])
     })
     
     output$expl_cards_resumen <- renderUI({
@@ -2097,15 +2177,58 @@ mod_occu_unmarked_server <- function(id) {
     
     output$expl_plot_cov <- renderPlot({
       df <- umf(); req(df, input$expl_cov)
-      y_mat     <- unmarked::getY(df)
-      site_covs <- unmarked::siteCovs(df)
-      req(!is.null(site_covs), input$expl_cov %in% names(site_covs))
-      
-      det_naive <- as.integer(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)))
-      x_var     <- site_covs[[input$expl_cov]]
-      
-      df_plot <- data.frame(x = x_var, det = det_naive)
-      
+      y_mat <- unmarked::getY(df)
+      sub   <- input$expl_submodelo %||% "state"
+
+      if (sub == "state") {
+        covs <- unmarked::siteCovs(df)
+        req(!is.null(covs), input$expl_cov %in% names(covs))
+        x_var <- covs[[input$expl_cov]]
+        det   <- as.integer(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)))
+        etiq_y <- "Detecci\u00f3n naive"
+        unidad <- " sitios"
+      } else {
+        # Detección por visita, solo en sitios con ≥1 detección
+        # (donde se sabe que la especie está presente)
+        covs <- unmarked::obsCovs(df)
+        req(!is.null(covs), input$expl_cov %in% names(covs))
+        ocupado <- rep(apply(y_mat, 1, function(x) any(x == 1, na.rm = TRUE)),
+                       each = ncol(y_mat))
+        x_var <- covs[[input$expl_cov]][ocupado]
+        det   <- as.vector(t(y_mat))[ocupado]
+        etiq_y <- "Detecci\u00f3n por visita"
+        unidad <- " visitas en sitios con \u22651 detecci\u00f3n"
+      }
+      ok <- !is.na(x_var) & !is.na(det)
+      df_plot <- data.frame(x = x_var[ok], det = det[ok])
+      req(nrow(df_plot) > 0)
+
+      tema <- ggplot2::theme_minimal(base_size = 13) +
+        ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
+                       plot.subtitle = ggplot2::element_text(
+                         color = colores$texto, size = 9))
+
+      # Categórica: proporción de detecciones por nivel
+      if (!is.numeric(df_plot$x)) {
+        df_plot$x <- factor(df_plot$x)
+        res <- aggregate(det ~ x, data = df_plot,
+                         FUN = function(v) c(prop = mean(v), n = length(v)))
+        res <- data.frame(x = res$x, prop = res$det[, "prop"],
+                          n = res$det[, "n"])
+        return(
+          ggplot2::ggplot(res, ggplot2::aes(x = x, y = prop)) +
+            ggplot2::geom_col(fill = colores$primario, alpha = 0.8, width = 0.6) +
+            ggplot2::geom_text(ggplot2::aes(label = paste0("n = ", n)),
+                               vjust = -0.5, size = 3.5, color = colores$texto) +
+            ggplot2::scale_y_continuous(limits = c(0, 1.08),
+                                        breaks = seq(0, 1, 0.25)) +
+            ggplot2::labs(x = input$expl_cov,
+                          y = paste0(etiq_y, " (proporci\u00f3n)"),
+                          subtitle = paste0("n = ", nrow(df_plot), unidad)) +
+            tema
+        )
+      }
+
       ggplot2::ggplot(df_plot, ggplot2::aes(x = x, y = det)) +
         ggplot2::geom_jitter(height = 0.04, alpha = 0.4, size = 2,
                              color = colores$primario) +
@@ -2116,13 +2239,10 @@ mod_occu_unmarked_server <- function(id) {
                              linewidth = 1.2) +
         ggplot2::scale_y_continuous(breaks = c(0, 1),
                                     labels = c("0 (no detectado)", "1 (detectado)")) +
-        ggplot2::labs(x = input$expl_cov, y = "Detecci\u00f3n naive",
+        ggplot2::labs(x = input$expl_cov, y = etiq_y,
                       subtitle = paste0("Curva log\u00edstica \u2014 n = ",
-                                        nrow(df_plot), " sitios")) +
-        ggplot2::theme_minimal(base_size = 13) +
-        ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
-                       plot.subtitle = ggplot2::element_text(
-                         color = colores$texto, size = 9))
+                                        nrow(df_plot), unidad)) +
+        tema
     }, res = 96)
     
     output$expl_plot_corr <- renderPlot({
