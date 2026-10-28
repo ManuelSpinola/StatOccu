@@ -214,159 +214,175 @@ mod_occu_community_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("database", class = "me-1"), "Los datos"),
         div(class = "p-3",
-          layout_columns(
-            col_widths = c(4, 8),
+          navset_underline(
 
-            div(
-              card(
-                class = "mb-3",
-                card_header(bs_icon("sliders", class = "me-1"), "Fuente de datos"),
-                card_body(
-                  radioButtons(
-                    ns("fuente_datos"),
-                    label = NULL,
-                    choices = c(
-                      "Dataset simulado (aves)" = "simulado",
-                      "Cargar mis datos"        = "propio"
-                    ),
-                    selected = "simulado"
+            # —— Datos de ejemplo ———————————————————————
+            nav_panel(
+              title = tagList(bs_icon("collection", class = "me-1"), "Datos de ejemplo"),
+              div(class = "mt-3",
+                radioButtons(
+                  ns("fuente_datos"),
+                  label = tagList(bs_icon("database", class = "me-1"),
+                                  "Seleccionar dataset:"),
+                  choices = c(
+                    "Aves — comunidad (simulado)" = "simulado"
                   ),
-                  conditionalPanel(
-                    condition = paste0("input['", ns("fuente_datos"), "'] == 'propio'"),
-                    radioButtons(
-                      ns("formato_propio"),
-                      label = NULL,
-                      choices = c(
-                        "Subir archivos CSV / XLSX" = "csv",
-                        "Subir archivo RDS"         = "rds"
-                      ),
-                      selected = "csv"
-                    ),
-
-                    # —— Opción CSV / XLSX —————————————
-                    conditionalPanel(
-                      condition = paste0("input['", ns("formato_propio"), "'] == 'csv'"),
-                      div(
-                        class = "alert alert-info small py-2 px-3 mb-2",
-                        bs_icon("info-circle", class = "me-1"),
-                        tags$strong("Sube tus archivos por separado:"),
-                        tags$ul(
-                          class = "mb-0 mt-1",
-                          tags$li(
-                            tags$strong("Detecciones (obligatorio):"),
-                            " dos opciones:",
-                            tags$ul(
-                              class = "mb-0 mt-1",
-                              tags$li(
-                                tags$strong("Varios archivos CSV o XLSX"),
-                                " (selección múltiple): un archivo por especie.",
-                                tags$br(),
-                                "El nombre del archivo = nombre de la especie ",
-                                "(use guion bajo para nombres compuestos, ej. ",
-                                code("Puma_concolor.csv"), ").",
-                                tags$br(),
-                                "Solo columnas de ocasiones, sin columna de sitios.",
-                                tags$br(),
-                                "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
-                              ),
-                              tags$li(
-                                tags$strong("Un archivo Excel con una hoja por especie:"),
-                                tags$br(),
-                                "El nombre de cada hoja = nombre de la especie ",
-                                "(use guion bajo para nombres compuestos, ej. ",
-                                code("Puma_concolor"), ").",
-                                tags$br(),
-                                "Solo columnas de ocasiones, sin columna de sitios.",
-                                tags$br(),
-                                "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
-                              )
-                            )
-                          ),
-                          tags$li(
-                            tags$strong("Covariables de sitio (obligatorio):"),
-                            " una fila por sitio, una columna por covariable."
-                          ),
-                          tags$li(
-                            tags$strong("Rasgos funcionales (opcional):"),
-                            " una fila por especie, una columna por rasgo."
-                          ),
-                          tags$li(
-                            tags$strong("Covariables de observación (opcional):"),
-                            " una columna por ocasión, un archivo por variable."
-                          )
-                        )
-                      ),
-                      fileInput(ns("arch_ylist"), "Detecciones (una o varias especies):",
-                                accept = c(".csv", ".xlsx"), multiple = TRUE,
-                                buttonLabel = "Buscar…",
-                                placeholder = "CSV o XLSX"),
-                      fileInput(ns("arch_sitecov"), "Covariables de sitio:",
-                                accept = c(".csv", ".xlsx"),
-                                buttonLabel = "Buscar…",
-                                placeholder = "CSV o XLSX"),
-                      fileInput(ns("arch_spcov"), "Rasgos funcionales (opcional):",
-                                accept = c(".csv", ".xlsx"),
-                                buttonLabel = "Buscar…",
-                                placeholder = "CSV o XLSX"),
-                      fileInput(ns("arch_obscov"), "Covariables de observación (opcional):",
-                                accept = c(".csv", ".xlsx"), multiple = TRUE,
-                                buttonLabel = "Buscar…",
-                                placeholder = "CSV o XLSX"),
-                      actionButton(ns("cargar_csv"), "Cargar datos",
-                                   class = "btn-primary w-100 mt-1",
-                                   icon  = icon("upload"))
-                    ),
-
-                    # —— Opción RDS ———————————————————
-                    conditionalPanel(
-                      condition = paste0("input['", ns("formato_propio"), "'] == 'rds'"),
-                      div(
-                        class = "alert alert-info small py-2 px-3 mb-2",
-                        bs_icon("info-circle", class = "me-1"),
-                        tags$strong("Formato del archivo RDS:"),
-                        tags$br(),
-                        "Debe ser una lista con los siguientes elementos:",
-                        tags$ul(
-                          class = "mb-0 mt-1",
-                          tags$li(code("ylist"),   " — lista nombrada de matrices sitios × ocasiones (0/1/NA), una por especie"),
-                          tags$li(code("sitecov"), " — data.frame con covariables de sitio (una fila por sitio)"),
-                          tags$li(code("spcov"),   " — lista de vectores de rasgos funcionales, uno por especie (opcional)"),
-                          tags$li(code("obscov"),  " — lista de data.frames de covariables de observación, uno por variable (opcional)")
-                        )
-                      ),
-                      fileInput(ns("archivo_rds"), label = NULL,
-                                accept = ".rds",
-                                buttonLabel = "Buscar…",
-                                placeholder = "Archivo .rds")
-                    )
-                  )
-                )
-              ),
-              card(
-                class = "mb-0",
-                card_header(bs_icon("info-circle", class = "me-1"), "Resumen"),
-                card_body(uiOutput(ns("resumen_datos")))
+                  selected = "simulado"
+                ),
+                p(class = "small text-muted mb-0",
+                  "20 especies de aves en 100 sitios con 3 ocasiones. ",
+                  "Covariables de sitio: elevaci\u00f3n y bosque; rasgo funcional: ",
+                  "log de la masa corporal; covariables de observaci\u00f3n: fecha y duraci\u00f3n.")
               )
             ),
 
-            div(
-              card(
-                class = "mb-3",
-                card_header(bs_icon("table", class = "me-1"),
-                            "Matriz de detecci\u00f3n — Especie 1"),
-                card_body(
-                  DT::DTOutput(ns("tabla_y1"))
-                )
-              ),
-              card(
-                card_header(bs_icon("bar-chart", class = "me-1"),
-                            "Tasa de detecci\u00f3n por especie"),
-                card_body(
-                  plotOutput(ns("plot_deteccion"), height = "250px")
+            # —— Mis datos ——————————————————————————————
+            nav_panel(
+              title = tagList(bs_icon("folder", class = "me-1"), "Mis datos"),
+              div(class = "mt-3",
+                radioButtons(
+                  ns("formato_propio"),
+                  label = NULL,
+                  choices = c(
+                    "Subir archivos CSV / XLSX" = "csv",
+                    "Subir archivo RDS"         = "rds"
+                  ),
+                  selected = "csv"
+                ),
+
+                # —— Opción CSV / XLSX —————————————
+                conditionalPanel(
+                  condition = paste0("input['", ns("formato_propio"), "'] == 'csv'"),
+                  div(
+                    class = "alert alert-info small py-2 px-3 mb-2",
+                    bs_icon("info-circle", class = "me-1"),
+                    tags$strong("Sube tus archivos por separado:"),
+                    tags$ul(
+                      class = "mb-0 mt-1",
+                      tags$li(
+                        tags$strong("Detecciones (obligatorio):"),
+                        " dos opciones:",
+                        tags$ul(
+                          class = "mb-0 mt-1",
+                          tags$li(
+                            tags$strong("Varios archivos CSV o XLSX"),
+                            " (selección múltiple): un archivo por especie.",
+                            tags$br(),
+                            "El nombre del archivo = nombre de la especie ",
+                            "(use guion bajo para nombres compuestos, ej. ",
+                            code("Puma_concolor.csv"), ").",
+                            tags$br(),
+                            "Solo columnas de ocasiones, sin columna de sitios.",
+                            tags$br(),
+                            "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
+                          ),
+                          tags$li(
+                            tags$strong("Un archivo Excel con una hoja por especie:"),
+                            tags$br(),
+                            "El nombre de cada hoja = nombre de la especie ",
+                            "(use guion bajo para nombres compuestos, ej. ",
+                            code("Puma_concolor"), ").",
+                            tags$br(),
+                            "Solo columnas de ocasiones, sin columna de sitios.",
+                            tags$br(),
+                            "Filas = sitios, columnas = ocasiones (valores 0/1/NA)."
+                          )
+                        )
+                      ),
+                      tags$li(
+                        tags$strong("Covariables de sitio (obligatorio):"),
+                        " una fila por sitio, una columna por covariable."
+                      ),
+                      tags$li(
+                        tags$strong("Rasgos funcionales (opcional):"),
+                        " una fila por especie, una columna por rasgo."
+                      ),
+                      tags$li(
+                        tags$strong("Covariables de observación (opcional):"),
+                        " una columna por ocasión, un archivo por variable."
+                      )
+                    )
+                  ),
+                  fileInput(ns("arch_ylist"), "Detecciones (una o varias especies):",
+                            accept = c(".csv", ".xlsx"), multiple = TRUE,
+                            buttonLabel = "Buscar…",
+                            placeholder = "CSV o XLSX"),
+                  fileInput(ns("arch_sitecov"), "Covariables de sitio:",
+                            accept = c(".csv", ".xlsx"),
+                            buttonLabel = "Buscar…",
+                            placeholder = "CSV o XLSX"),
+                  fileInput(ns("arch_spcov"), "Rasgos funcionales (opcional):",
+                            accept = c(".csv", ".xlsx"),
+                            buttonLabel = "Buscar…",
+                            placeholder = "CSV o XLSX"),
+                  fileInput(ns("arch_obscov"), "Covariables de observación (opcional):",
+                            accept = c(".csv", ".xlsx"), multiple = TRUE,
+                            buttonLabel = "Buscar…",
+                            placeholder = "CSV o XLSX"),
+                  actionButton(ns("cargar_csv"), "Cargar datos",
+                               class = "btn-primary w-100 mt-1",
+                               icon  = icon("upload"))
+                ),
+
+                # —— Opción RDS ———————————————————
+                conditionalPanel(
+                  condition = paste0("input['", ns("formato_propio"), "'] == 'rds'"),
+                  div(
+                    class = "alert alert-info small py-2 px-3 mb-2",
+                    bs_icon("info-circle", class = "me-1"),
+                    tags$strong("Formato del archivo RDS:"),
+                    tags$br(),
+                    "Debe ser una lista con los siguientes elementos:",
+                    tags$ul(
+                      class = "mb-0 mt-1",
+                      tags$li(code("ylist"),   " — lista nombrada de matrices sitios × ocasiones (0/1/NA), una por especie"),
+                      tags$li(code("sitecov"), " — data.frame con covariables de sitio (una fila por sitio)"),
+                      tags$li(code("spcov"),   " — lista de vectores de rasgos funcionales, uno por especie (opcional)"),
+                      tags$li(code("obscov"),  " — lista de data.frames de covariables de observación, uno por variable (opcional)")
+                    )
+                  ),
+                  fileInput(ns("archivo_rds"), label = NULL,
+                            accept = ".rds",
+                            buttonLabel = "Buscar…",
+                            placeholder = "Archivo .rds")
+                ),
+                uiOutput(ns("estado_mis_datos"))
+              )
+            ),
+
+            # —— Vista previa ———————————————————————————
+            nav_panel(
+              title = tagList(bs_icon("eye", class = "me-1"), "Vista previa"),
+              div(class = "mt-3",
+                layout_columns(
+                  col_widths = c(4, 8),
+                  card(
+                    class = "mb-0",
+                    card_header(bs_icon("info-circle", class = "me-1"), "Resumen"),
+                    card_body(uiOutput(ns("resumen_datos")))
+                  ),
+                  div(
+                    card(
+                      class = "mb-3",
+                      card_header(bs_icon("table", class = "me-1"),
+                                  "Matriz de detecci\u00f3n — Especie 1"),
+                      card_body(
+                        DT::DTOutput(ns("tabla_y1"))
+                      )
+                    ),
+                    card(
+                      card_header(bs_icon("bar-chart", class = "me-1"),
+                                  "Tasa de detecci\u00f3n por especie"),
+                      card_body(
+                        plotOutput(ns("plot_deteccion"), height = "250px")
+                      )
+                    )
+                  )
                 )
               )
             )
-          )
+
+          ) # /navset_underline
         )
       ),
 
@@ -767,6 +783,7 @@ mod_occu_community_server <- function(id) {
           nsp     = length(ylist)
         )
         datos_activos(d)
+        marcar_propio(paste(input$arch_ylist$name, collapse = ", "))
         showNotification("Datos cargados correctamente.", type = "message")
       }, error = function(e) {
         showNotification(paste("Error al cargar:", conditionMessage(e)),
@@ -780,17 +797,37 @@ mod_occu_community_server <- function(id) {
         d <- readRDS(input$archivo_rds$datapath)
         req(is.list(d), !is.null(d$ylist), !is.null(d$sitecov))
         datos_activos(d)
+        marcar_propio(input$archivo_rds$name)
         showNotification("Datos cargados correctamente.", type = "message")
       }, error = function(e) {
         showNotification(paste("Error:", conditionMessage(e)), type = "error")
       })
     })
 
-    # Cambio de fuente
+    # Fuente activa: la \u00faltima acci\u00f3n del usuario (elegir el ejemplo o
+    # cargar sus datos). Al cargar datos propios se desmarca el ejemplo,
+    # para que volver a elegirlo dispare el cambio.
+    archivo_propio <- reactiveVal(NULL)
+
+    marcar_propio <- function(nombre) {
+      archivo_propio(nombre)
+      updateRadioButtons(session, "fuente_datos", selected = character(0))
+    }
+
     observeEvent(input$fuente_datos, {
+      req(input$fuente_datos)
       if (input$fuente_datos == "simulado") {
+        archivo_propio(NULL)
         datos_activos(.cargar_datos_comunidad())
       }
+    })
+
+    output$estado_mis_datos <- renderUI({
+      req(archivo_propio())
+      div(class = "alert alert-success small py-2 px-3 mt-2 mb-0",
+          bs_icon("check-circle-fill", class = "me-1"),
+          "Usando ", strong(archivo_propio()),
+          ". Revisa la pesta\u00f1a Vista previa.")
     })
 
     # Resumen de datos
@@ -1087,15 +1124,15 @@ mod_occu_community_server <- function(id) {
     output$tabla_params <- renderUI({
       fm <- modelo_fit(); req(fm)
       tryCatch({
-        cf_s <- coef(fm["state"])
-        cf_d <- coef(fm["det"])
+        cf_s <- unmarked::coef(fm, type = "state")
+        cf_d <- unmarked::coef(fm, type = "det")
         fijos <- c(cf_s, cf_d)
         df <- data.frame(
           Parametro = names(fijos),
           Estimado  = round(as.numeric(fijos), 4)
         )
-        ci_s <- tryCatch(confint(fm, type="state", method="normal"), error=function(e) NULL)
-        ci_d <- tryCatch(confint(fm, type="det",   method="normal"), error=function(e) NULL)
+        ci_s <- tryCatch(unmarked::confint(fm, type="state", method="normal"), error=function(e) NULL)
+        ci_d <- tryCatch(unmarked::confint(fm, type="det",   method="normal"), error=function(e) NULL)
         if (!is.null(ci_s) && !is.null(ci_d)) {
           ci_all <- rbind(ci_s, ci_d)
           ci_sub <- ci_all[rownames(ci_all) %in% names(fijos), , drop=FALSE]
@@ -1119,12 +1156,12 @@ mod_occu_community_server <- function(id) {
     output$plot_coefs <- renderPlot({
       fm <- modelo_fit(); req(fm)
       tryCatch({
-        cf_s <- coef(fm["state"])
-        cf_d <- coef(fm["det"])
+        cf_s <- unmarked::coef(fm, type = "state")
+        cf_d <- unmarked::coef(fm, type = "det")
         fijos <- c(cf_s, cf_d)
         df <- data.frame(param = names(fijos), valor = as.numeric(fijos))
-        ci_s <- tryCatch(confint(fm, type="state", method="normal"), error=function(e) NULL)
-        ci_d <- tryCatch(confint(fm, type="det",   method="normal"), error=function(e) NULL)
+        ci_s <- tryCatch(unmarked::confint(fm, type="state", method="normal"), error=function(e) NULL)
+        ci_d <- tryCatch(unmarked::confint(fm, type="det",   method="normal"), error=function(e) NULL)
         if (!is.null(ci_s) && !is.null(ci_d)) {
           ci_all <- rbind(ci_s, ci_d)
           ci_sub <- ci_all[rownames(ci_all) %in% names(fijos), , drop=FALSE]
@@ -1339,15 +1376,15 @@ mod_occu_community_server <- function(id) {
     output$tabla_params <- renderUI({
       fm <- modelo_fit(); req(fm)
       tryCatch({
-        cf_s <- coef(fm["state"])
-        cf_d <- coef(fm["det"])
+        cf_s <- unmarked::coef(fm, type = "state")
+        cf_d <- unmarked::coef(fm, type = "det")
         fijos <- c(cf_s, cf_d)
         df <- data.frame(
           Parametro = names(fijos),
           Estimado  = round(as.numeric(fijos), 4)
         )
-        ci_s <- tryCatch(confint(fm, type="state", method="normal"), error=function(e) NULL)
-        ci_d <- tryCatch(confint(fm, type="det",   method="normal"), error=function(e) NULL)
+        ci_s <- tryCatch(unmarked::confint(fm, type="state", method="normal"), error=function(e) NULL)
+        ci_d <- tryCatch(unmarked::confint(fm, type="det",   method="normal"), error=function(e) NULL)
         if (!is.null(ci_s) && !is.null(ci_d)) {
           ci_all <- rbind(ci_s, ci_d)
           ci_sub <- ci_all[rownames(ci_all) %in% names(fijos), , drop=FALSE]
@@ -1370,14 +1407,14 @@ mod_occu_community_server <- function(id) {
 
     output$plot_coefs <- renderPlot({
       fm <- modelo_fit(); req(fm)
-      cf_state <- tryCatch(coef(fm["state"]), error = function(e) NULL)
-      cf_det   <- tryCatch(coef(fm["det"]),   error = function(e) NULL)
+      cf_state <- tryCatch(unmarked::coef(fm, type = "state"), error = function(e) NULL)
+      cf_det   <- tryCatch(unmarked::coef(fm, type = "det"),   error = function(e) NULL)
       req(!is.null(cf_state))
       fijos <- c(cf_state, if (!is.null(cf_det)) cf_det else numeric(0))
       req(length(fijos) > 0)
       df <- data.frame(param = names(fijos), valor = as.numeric(fijos))
-      ci_state <- tryCatch(confint(fm, type = "state", method = "normal"), error = function(e) NULL)
-      ci_det   <- tryCatch(confint(fm, type = "det", method = "normal"),   error = function(e) NULL)
+      ci_state <- tryCatch(unmarked::confint(fm, type = "state", method = "normal"), error = function(e) NULL)
+      ci_det   <- tryCatch(unmarked::confint(fm, type = "det", method = "normal"),   error = function(e) NULL)
       if (!is.null(ci_state) && !is.null(ci_det)) {
         ci_all <- rbind(ci_state, ci_det)
         ci_sub <- ci_all[rownames(ci_all) %in% names(fijos), , drop = FALSE]
@@ -1407,12 +1444,12 @@ mod_occu_community_server <- function(id) {
       submod <- input$submod_marginal %||% "state"
       # Mostrar solo covariables que están EN el modelo
       if (submod == "state") {
-        cf      <- coef(fm["state"])
+        cf      <- unmarked::coef(fm, type = "state")
         en_modelo <- names(umf@siteCovs)[sapply(names(umf@siteCovs), function(v)
           any(grepl(v, names(cf))))]
         cov_choices <- if (length(en_modelo) > 0) en_modelo else names(umf@siteCovs)
       } else {
-        cf_det    <- coef(fm["det"])
+        cf_det    <- unmarked::coef(fm, type = "det")
         obs_names <- if (!is.null(umf@obsCovs)) names(umf@obsCovs) else character(0)
         en_modelo <- obs_names[sapply(obs_names, function(v)
           any(grepl(v, names(cf_det))))]
@@ -1539,8 +1576,8 @@ mod_occu_community_server <- function(id) {
     output$plot_random_effects <- renderPlot({
       fm <- modelo_fit(); req(fm)
       tryCatch({
-        cf_state <- tryCatch(coef(fm["state"]), error = function(e) numeric(0))
-        cf_det   <- tryCatch(coef(fm["det"]),   error = function(e) numeric(0))
+        cf_state <- tryCatch(unmarked::coef(fm, type = "state"), error = function(e) numeric(0))
+        cf_det   <- tryCatch(unmarked::coef(fm, type = "det"),   error = function(e) numeric(0))
         cf_all   <- c(cf_state, cf_det)
         re_idx   <- grepl("\\[", names(cf_all))
         re_vals  <- cf_all[re_idx]
