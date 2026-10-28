@@ -214,7 +214,7 @@ mod_occu_community_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("database", class = "me-1"), "Los datos"),
         div(class = "p-3",
-          navset_underline(
+          navset_pill(
 
             # —— Datos de ejemplo ———————————————————————
             nav_panel(
@@ -229,7 +229,9 @@ mod_occu_community_ui <- function(id) {
                   ),
                   selected = "simulado"
                 ),
-                p(class = "small text-muted mb-0",
+                div(class = "alert alert-info small py-2 px-3 mt-3 mb-0",
+                  bs_icon("info-circle-fill", class = "me-1"),
+                  "Aves \u2014 comunidad (simulado). ",
                   "20 especies de aves en 100 sitios con 3 ocasiones. ",
                   "Covariables de sitio: elevaci\u00f3n y bosque; rasgo funcional: ",
                   "log de la masa corporal; covariables de observaci\u00f3n: fecha y duraci\u00f3n.")
@@ -382,7 +384,7 @@ mod_occu_community_ui <- function(id) {
               )
             )
 
-          ) # /navset_underline
+          ) # /navset_pill
         )
       ),
 
